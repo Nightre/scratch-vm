@@ -14,9 +14,10 @@ class RenderedTarget extends Target {
      * @param {Runtime} runtime Reference to the runtime.
      * @constructor
      */
-    constructor (sprite, runtime) {
+    constructor(sprite, runtime) {
         super(runtime, sprite.blocks);
 
+        this.vm = runtime.vm
         /**
          * Reference to the sprite that this is a render of.
          * @type {!Sprite}
@@ -168,13 +169,65 @@ class RenderedTarget extends Target {
         this.onTargetVisualChange = null;
 
         this.interpolationData = null;
+        /** @type {Array} */
+        this.components = []
+        /** @type {Array} */
+        this.componentsOverride = []
+        // key=属性明 value=默认值
+        this.exportAttribute = {}
+
+        this.publicDefintions = []
+        this.publicDefintionsIds = []
+    }
+
+    getAtribute(name) {
+        return this.exportAttribute[name]
+    }
+    removeAtribute(name) {
+        delete this.exportAttribute[name]
+        window.vm.emitTargetsUpdate(true)
+    }
+    setAtribute(name, data) {
+        this.exportAttribute[name] = data
+        this.runtime.requestTargetsUpdate(this);
+        window.vm.emitTargetsUpdate(true)
+    }
+
+    setOverride(index, name, data) {
+        this.componentsOverride[index][name] = data
+        this.runtime.requestTargetsUpdate(this);
+        window.vm.emitTargetsUpdate(true)
+    }
+    removeOverride(index, name) {
+        delete this.componentsOverride[index][name]
+        this.runtime.requestTargetsUpdate(this);
+        window.vm.emitTargetsUpdate(true)
+    }
+
+    addComponet(componets) {
+        this.components.push(componets)
+        this.componentsOverride.push({})
+        this.runtime.requestTargetsUpdate(this);
+        window.vm.emitTargetsUpdate(true)
+        window.vm.emitWorkspaceUpdate()
+    }
+    removeComponet(targetComponentIndex) {
+        if (targetComponentIndex >= 0 && targetComponentIndex < this.components.length) {
+            this.components.splice(targetComponentIndex, 1);
+            this.componentsOverride.splice(targetComponentIndex, 1);
+            this.runtime.requestTargetsUpdate(this);
+        } else {
+            console.warn("Invalid component index:", targetComponentIndex);
+        }
+        window.vm.emitTargetsUpdate(true)
+        window.vm.emitWorkspaceUpdate()
     }
 
     /**
      * Create a drawable with the this.renderer.
      * @param {boolean} layerGroup The layer group this drawable should be added to
      */
-    initDrawable (layerGroup) {
+    initDrawable(layerGroup) {
         if (this.renderer) {
             this.drawableID = this.renderer.createDrawable(layerGroup);
         }
@@ -186,7 +239,7 @@ class RenderedTarget extends Target {
         }
     }
 
-    get audioPlayer () {
+    get audioPlayer() {
         /* eslint-disable no-console */
         console.warn('get audioPlayer deprecated, please update to use .sprite.soundBank methods');
         console.warn(new Error('stack for debug').stack);
@@ -209,14 +262,14 @@ class RenderedTarget extends Target {
     /**
      * Initialize the audio player for this sprite or clone.
      */
-    initAudio () {
+    initAudio() {
     }
 
     /**
      * Rotation style for "all around"/spinning.
      * @type {string}
      */
-    static get ROTATION_STYLE_ALL_AROUND () {
+    static get ROTATION_STYLE_ALL_AROUND() {
         return 'all around';
     }
 
@@ -224,7 +277,7 @@ class RenderedTarget extends Target {
      * Rotation style for "left-right"/flipping.
      * @type {string}
      */
-    static get ROTATION_STYLE_LEFT_RIGHT () {
+    static get ROTATION_STYLE_LEFT_RIGHT() {
         return 'left-right';
     }
 
@@ -232,7 +285,7 @@ class RenderedTarget extends Target {
      * Rotation style for "no rotation."
      * @type {string}
      */
-    static get ROTATION_STYLE_NONE () {
+    static get ROTATION_STYLE_NONE() {
         return "don't rotate";
     }
 
@@ -240,7 +293,7 @@ class RenderedTarget extends Target {
      * Available states for video input.
      * @enum {string}
      */
-    static get VIDEO_STATE () {
+    static get VIDEO_STATE() {
         return {
             OFF: 'off',
             ON: 'on',
@@ -248,7 +301,7 @@ class RenderedTarget extends Target {
         };
     }
 
-    emitVisualChange () {
+    emitVisualChange() {
         if (this.onTargetVisualChange) {
             this.onTargetVisualChange(this);
         }
@@ -260,7 +313,7 @@ class RenderedTarget extends Target {
      * @param {!number} y New Y coordinate, in Scratch coordinates.
      * @param {?boolean} force Force setting X/Y, in case of dragging
      */
-    setXY (x, y, force) { // used by compiler
+    setXY(x, y, force) { // used by compiler
         if (this.isStage) return;
         if (this.dragging && !force) return;
         const oldX = this.x;
@@ -291,7 +344,7 @@ class RenderedTarget extends Target {
      * Get the rendered direction and scale, after applying rotation style.
      * @return {object<string, number>} Direction and scale to render.
      */
-    _getRenderedDirectionAndScale () {
+    _getRenderedDirectionAndScale() {
         // Default: no changes to `this.direction` or `this.scale`.
         let finalDirection = this.direction;
         let finalScale = [this.size, this.size];
@@ -304,14 +357,14 @@ class RenderedTarget extends Target {
             const scaleFlip = (this.direction < 0) ? -1 : 1;
             finalScale = [scaleFlip * this.size, this.size];
         }
-        return {direction: finalDirection, scale: finalScale};
+        return { direction: finalDirection, scale: finalScale };
     }
 
     /**
      * Set the direction.
      * @param {!number} direction New direction.
      */
-    setDirection (direction) { // used by compiler
+    setDirection(direction) { // used by compiler
         if (this.isStage) {
             return;
         }
@@ -321,7 +374,7 @@ class RenderedTarget extends Target {
         // Keep direction between -179 and +180.
         this.direction = MathUtil.wrapClamp(direction, -179, 180);
         if (this.renderer) {
-            const {direction: renderedDirection, scale} = this._getRenderedDirectionAndScale();
+            const { direction: renderedDirection, scale } = this._getRenderedDirectionAndScale();
             this.renderer.updateDrawableDirectionScale(this.drawableID, renderedDirection, scale);
             if (this.visible) {
                 this.emitVisualChange();
@@ -335,7 +388,7 @@ class RenderedTarget extends Target {
      * Set draggability; i.e., whether it's able to be dragged in the player
      * @param {!boolean} draggable True if should be draggable.
      */
-    setDraggable (draggable) {
+    setDraggable(draggable) {
         if (this.isStage) return;
         this.draggable = !!draggable;
         this.runtime.requestTargetsUpdate(this);
@@ -345,7 +398,7 @@ class RenderedTarget extends Target {
      * Set visibility; i.e., whether it's shown or hidden.
      * @param {!boolean} visible True if should be shown.
      */
-    setVisible (visible) { // used by compiler
+    setVisible(visible) { // used by compiler
         if (this.isStage) {
             return;
         }
@@ -364,7 +417,7 @@ class RenderedTarget extends Target {
      * Set size, as a percentage of the costume size.
      * @param {!number} size Size of rendered target, as % of costume size.
      */
-    setSize (size) { // used by compiler
+    setSize(size) { // used by compiler
         if (this.isStage) {
             return;
         }
@@ -381,7 +434,7 @@ class RenderedTarget extends Target {
                 (1.5 * this.runtime.stageHeight) / origH
             ) : Infinity;
             this.size = MathUtil.clamp(size / 100, minScale, maxScale) * 100;
-            const {direction, scale} = this._getRenderedDirectionAndScale();
+            const { direction, scale } = this._getRenderedDirectionAndScale();
             this.renderer.updateDrawableDirectionScale(this.drawableID, direction, scale);
             if (this.visible) {
                 this.emitVisualChange();
@@ -400,7 +453,7 @@ class RenderedTarget extends Target {
      * @param {!string} effectName Name of effect (see `RenderedTarget.prototype.effects`).
      * @param {!number} value Numerical magnitude of effect.
      */
-    setEffect (effectName, value) { // used by compiler
+    setEffect(effectName, value) { // used by compiler
         if (!Object.prototype.hasOwnProperty.call(this.effects, effectName)) return;
         this.effects[effectName] = value;
         if (this.renderer) {
@@ -415,7 +468,7 @@ class RenderedTarget extends Target {
     /**
      * Clear all graphic effects on this rendered target.
      */
-    clearEffects () { // used by compiler
+    clearEffects() { // used by compiler
         for (const effectName in this.effects) {
             if (!Object.prototype.hasOwnProperty.call(this.effects, effectName)) continue;
             this.effects[effectName] = 0;
@@ -436,7 +489,7 @@ class RenderedTarget extends Target {
      * Set the current costume.
      * @param {number} index New index of costume.
      */
-    setCostume (index) {
+    setCostume(index) {
         // Keep the costume index within possible values.
         index = Math.round(index);
         if (index === Infinity || index === -Infinity || !index) {
@@ -463,7 +516,7 @@ class RenderedTarget extends Target {
      * @param {!object} costumeObject Object representing the costume.
      * @param {?int} index Index at which to add costume
      */
-    addCostume (costumeObject, index) {
+    addCostume(costumeObject, index) {
         if (typeof index === 'number' && !isNaN(index)) {
             this.sprite.addCostumeAt(costumeObject, index);
         } else {
@@ -476,7 +529,7 @@ class RenderedTarget extends Target {
      * @param {int} costumeIndex - the index of the costume to be renamed.
      * @param {string} newName - the desired new name of the costume (will be modified if already in use).
      */
-    renameCostume (costumeIndex, newName) {
+    renameCostume(costumeIndex, newName) {
         const usedNames = this.sprite.costumes
             .filter((costume, index) => costumeIndex !== index)
             .map(costume => costume.name);
@@ -505,7 +558,7 @@ class RenderedTarget extends Target {
      * if the index was out of bounds of the costumes list or
      * this target only has one costume.
      */
-    deleteCostume (index) {
+    deleteCostume(index) {
         const originalCostumeCount = this.sprite.costumes.length;
         if (originalCostumeCount === 1) return null;
 
@@ -532,7 +585,7 @@ class RenderedTarget extends Target {
      * @param {!object} soundObject Object representing the sound.
      * @param {?int} index Index at which to add costume
      */
-    addSound (soundObject, index) {
+    addSound(soundObject, index) {
         const usedNames = this.sprite.sounds.map(sound => sound.name);
         soundObject.name = StringUtil.unusedName(soundObject.name, usedNames);
         if (typeof index === 'number' && !isNaN(index)) {
@@ -547,7 +600,7 @@ class RenderedTarget extends Target {
      * @param {int} soundIndex - the index of the sound to be renamed.
      * @param {string} newName - the desired new name of the sound (will be modified if already in use).
      */
-    renameSound (soundIndex, newName) {
+    renameSound(soundIndex, newName) {
         const usedNames = this.sprite.sounds
             .filter((sound, index) => soundIndex !== index)
             .map(sound => sound.name);
@@ -562,7 +615,7 @@ class RenderedTarget extends Target {
      * @param {number} index Sound index to be deleted
      * @return {object} The deleted sound object, or null if no sound was deleted.
      */
-    deleteSound (index) {
+    deleteSound(index) {
         // Make sure the sound index is not out of bounds
         if (index < 0 || index >= this.sprite.sounds.length) {
             return null;
@@ -577,7 +630,7 @@ class RenderedTarget extends Target {
      * Update the rotation style.
      * @param {!string} rotationStyle New rotation style.
      */
-    setRotationStyle (rotationStyle) { // used by compiler
+    setRotationStyle(rotationStyle) { // used by compiler
         if (rotationStyle === RenderedTarget.ROTATION_STYLE_NONE) {
             this.rotationStyle = RenderedTarget.ROTATION_STYLE_NONE;
         } else if (rotationStyle === RenderedTarget.ROTATION_STYLE_ALL_AROUND) {
@@ -586,7 +639,7 @@ class RenderedTarget extends Target {
             this.rotationStyle = RenderedTarget.ROTATION_STYLE_LEFT_RIGHT;
         }
         if (this.renderer) {
-            const {direction, scale} = this._getRenderedDirectionAndScale();
+            const { direction, scale } = this._getRenderedDirectionAndScale();
             this.renderer.updateDrawableDirectionScale(this.drawableID, direction, scale);
             if (this.visible) {
                 this.emitVisualChange();
@@ -601,7 +654,7 @@ class RenderedTarget extends Target {
      * @param {?string} costumeName Name of a costume.
      * @return {number} Index of the named costume, or -1 if not present.
      */
-    getCostumeIndexByName (costumeName) {
+    getCostumeIndexByName(costumeName) {
         const costumes = this.getCostumes();
         for (let i = 0; i < costumes.length; i++) {
             if (costumes[i].name === costumeName) {
@@ -615,7 +668,7 @@ class RenderedTarget extends Target {
      * Get a costume of this rendered target by id.
      * @return {object} current costume
      */
-    getCurrentCostume () {
+    getCurrentCostume() {
         return this.getCostumes()[this.currentCostume];
     }
 
@@ -623,7 +676,7 @@ class RenderedTarget extends Target {
      * Get full costume list
      * @return {object[]} list of costumes
      */
-    getCostumes () { // used by compiler
+    getCostumes() { // used by compiler
         return this.sprite.costumes;
     }
 
@@ -633,7 +686,7 @@ class RenderedTarget extends Target {
      * @param {!number} newIndex New index for that costume.
      * @returns {boolean} If a change occurred (i.e. if the indices do not match)
      */
-    reorderCostume (costumeIndex, newIndex) {
+    reorderCostume(costumeIndex, newIndex) {
         newIndex = MathUtil.clamp(newIndex, 0, this.sprite.costumes.length - 1);
         costumeIndex = MathUtil.clamp(costumeIndex, 0, this.sprite.costumes.length - 1);
 
@@ -656,7 +709,7 @@ class RenderedTarget extends Target {
      * @param {!number} newIndex New index for that sound.
      * @returns {boolean} If a change occurred (i.e. if the indices do not match)
      */
-    reorderSound (soundIndex, newIndex) {
+    reorderSound(soundIndex, newIndex) {
         newIndex = MathUtil.clamp(newIndex, 0, this.sprite.sounds.length - 1);
         soundIndex = MathUtil.clamp(soundIndex, 0, this.sprite.sounds.length - 1);
 
@@ -672,7 +725,7 @@ class RenderedTarget extends Target {
      * Get full sound list
      * @return {object[]} list of sounds
      */
-    getSounds () {
+    getSounds() {
         return this.sprite.sounds;
     }
 
@@ -680,9 +733,9 @@ class RenderedTarget extends Target {
      * Update all drawable properties for this rendered target.
      * Use when a batch has changed, e.g., when the drawable is first created.
      */
-    updateAllDrawableProperties () {
+    updateAllDrawableProperties() {
         if (this.renderer) {
-            const {direction, scale} = this._getRenderedDirectionAndScale();
+            const { direction, scale } = this._getRenderedDirectionAndScale();
             this.renderer.updateDrawablePosition(this.drawableID, [this.x, this.y]);
             this.renderer.updateDrawableDirectionScale(this.drawableID, direction, scale);
             this.renderer.updateDrawableVisible(this.drawableID, this.visible);
@@ -708,7 +761,7 @@ class RenderedTarget extends Target {
      * @override
      * @returns {string} Human-readable name.
      */
-    getName () {
+    getName() {
         return this.sprite.name;
     }
 
@@ -716,7 +769,7 @@ class RenderedTarget extends Target {
      * Return whether this rendered target is a sprite (not a clone, not the stage).
      * @return {boolean} True if not a clone and not the stage.
      */
-    isSprite () {
+    isSprite() {
         return !this.isStage && this.isOriginal;
     }
 
@@ -725,7 +778,7 @@ class RenderedTarget extends Target {
      * Includes top, left, bottom, right attributes in Scratch coordinates.
      * @return {?object} Tight bounding box, or null.
      */
-    getBounds () {
+    getBounds() {
         if (this.renderer) {
             return this.runtime.renderer.getBounds(this.drawableID);
         }
@@ -737,7 +790,7 @@ class RenderedTarget extends Target {
      * Includes top, left, bottom, right attributes in Scratch coordinates.
      * @return {?object} Tight bounding box, or null.
      */
-    getBoundsForBubble () {
+    getBoundsForBubble() {
         if (this.renderer) {
             return this.runtime.renderer.getBoundsForBubble(this.drawableID);
         }
@@ -749,7 +802,7 @@ class RenderedTarget extends Target {
      * @param {string} requestedObject an id for mouse or edge, or a sprite name.
      * @return {boolean} True if the sprite is touching the object.
      */
-    isTouchingObject (requestedObject) { // used by compiler
+    isTouchingObject(requestedObject) { // used by compiler
         if (requestedObject === '_mouse_') {
             if (!this.runtime.ioDevices.mouse) return false;
             const mouseX = this.runtime.ioDevices.mouse.getClientX();
@@ -767,7 +820,7 @@ class RenderedTarget extends Target {
      * @param {number} y Y coordinate of test point.
      * @return {boolean} True iff the rendered target is touching the point.
      */
-    isTouchingPoint (x, y) {
+    isTouchingPoint(x, y) {
         if (this.renderer) {
             return this.renderer.drawableTouching(this.drawableID, x, y);
         }
@@ -778,7 +831,7 @@ class RenderedTarget extends Target {
      * Return whether touching a stage edge.
      * @return {boolean} True iff the rendered target is touching the stage edge.
      */
-    isTouchingEdge () {
+    isTouchingEdge() {
         if (this.renderer) {
             const stageWidth = this.runtime.stageWidth;
             const stageHeight = this.runtime.stageHeight;
@@ -798,7 +851,7 @@ class RenderedTarget extends Target {
      * @param {string} spriteName Name of the sprite.
      * @return {boolean} True iff touching a clone of the sprite.
      */
-    isTouchingSprite (spriteName) {
+    isTouchingSprite(spriteName) {
         spriteName = Cast.toString(spriteName);
         const firstClone = this.runtime.getSpriteTargetByName(spriteName);
         if (!firstClone || !this.renderer) {
@@ -818,7 +871,7 @@ class RenderedTarget extends Target {
      * @param {Array.<number>} rgb [r,g,b], values between 0-255.
      * @return {Promise.<boolean>} True iff the rendered target is touching the color.
      */
-    isTouchingColor (rgb) { // used by compiler
+    isTouchingColor(rgb) { // used by compiler
         if (this.renderer) {
             return this.renderer.isTouchingColor(this.drawableID, rgb);
         }
@@ -831,7 +884,7 @@ class RenderedTarget extends Target {
      * @param {object} maskRgb {Array.<number>} [r,g,b], values between 0-255.
      * @return {Promise.<boolean>} True iff the color is touching the color.
      */
-    colorIsTouchingColor (targetRgb, maskRgb) { // used by compiler
+    colorIsTouchingColor(targetRgb, maskRgb) { // used by compiler
         if (this.renderer) {
             return this.renderer.isTouchingColor(
                 this.drawableID,
@@ -842,7 +895,7 @@ class RenderedTarget extends Target {
         return false;
     }
 
-    getLayerOrder () {
+    getLayerOrder() {
         if (this.renderer) {
             return this.renderer.getDrawableOrder(this.drawableID);
         }
@@ -852,7 +905,7 @@ class RenderedTarget extends Target {
     /**
      * Move to the front layer.
      */
-    goToFront () { // This should only ever be used for sprites // used by compiler
+    goToFront() { // This should only ever be used for sprites // used by compiler
         if (this.renderer) {
             // Let the renderer re-order the sprite based on its knowledge
             // of what layers are present
@@ -865,7 +918,7 @@ class RenderedTarget extends Target {
     /**
      * Move to the back layer.
      */
-    goToBack () { // This should only ever be used for sprites // used by compiler
+    goToBack() { // This should only ever be used for sprites // used by compiler
         if (this.renderer) {
             // Let the renderer re-order the sprite based on its knowledge
             // of what layers are present
@@ -879,7 +932,7 @@ class RenderedTarget extends Target {
      * Move forward a number of layers.
      * @param {number} nLayers How many layers to go forward.
      */
-    goForwardLayers (nLayers) { // used by compiler
+    goForwardLayers(nLayers) { // used by compiler
         if (this.renderer) {
             this.renderer.setDrawableOrder(this.drawableID, nLayers, StageLayering.SPRITE_LAYER, true);
         }
@@ -891,7 +944,7 @@ class RenderedTarget extends Target {
      * Move backward a number of layers.
      * @param {number} nLayers How many layers to go backward.
      */
-    goBackwardLayers (nLayers) { // used by compiler
+    goBackwardLayers(nLayers) { // used by compiler
         if (this.renderer) {
             this.renderer.setDrawableOrder(this.drawableID, -nLayers, StageLayering.SPRITE_LAYER, true);
         }
@@ -903,7 +956,7 @@ class RenderedTarget extends Target {
      * Move behind some other rendered target.
      * @param {!RenderedTarget} other Other rendered target to move behind.
      */
-    goBehindOther (other) {
+    goBehindOther(other) {
         if (this.renderer) {
             const otherLayer = this.renderer.setDrawableOrder(
                 other.drawableID, 0, StageLayering.SPRITE_LAYER, true);
@@ -921,7 +974,7 @@ class RenderedTarget extends Target {
      * @param {object=} optFence Optional fence with left, right, top bottom.
      * @return {Array.<number>} Fenced X and Y coordinates.
      */
-    keepInFence (newX, newY, optFence) {
+    keepInFence(newX, newY, optFence) {
         let fence = optFence;
         if (!fence) {
             fence = {
@@ -961,7 +1014,7 @@ class RenderedTarget extends Target {
      * If we've hit the global clone limit, returns null.
      * @return {RenderedTarget} New clone.
      */
-    makeClone () {
+    makeClone() {
         if (!this.runtime.clonesAvailable() || this.isStage) {
             return null; // Hit max clone limit, or this is the stage.
         }
@@ -988,7 +1041,7 @@ class RenderedTarget extends Target {
      * Make a duplicate using a duplicate sprite.
      * @return {RenderedTarget} New clone.
      */
-    duplicate () {
+    duplicate() {
         return this.sprite.duplicate().then(newSprite => {
             const newTarget = newSprite.createClone();
             // Copy all properties.
@@ -1012,7 +1065,7 @@ class RenderedTarget extends Target {
      * Called when the project receives a "green flag."
      * For a rendered target, this clears graphic effects.
      */
-    onGreenFlag () {
+    onGreenFlag() {
         this.clearEffects();
     }
 
@@ -1020,7 +1073,7 @@ class RenderedTarget extends Target {
      * Called when the project receives a "stop all"
      * Stop all sounds and clear graphic effects.
      */
-    onStopAll () {
+    onStopAll() {
         this.clearEffects();
     }
 
@@ -1028,7 +1081,7 @@ class RenderedTarget extends Target {
      * Post/edit sprite info.
      * @param {object} data An object with sprite info data to set.
      */
-    postSpriteInfo (data) {
+    postSpriteInfo(data) {
         const force = Object.prototype.hasOwnProperty.call(data, 'force') ? data.force : null;
         const isXChanged = Object.prototype.hasOwnProperty.call(data, 'x');
         const isYChanged = Object.prototype.hasOwnProperty.call(data, 'y');
@@ -1055,14 +1108,14 @@ class RenderedTarget extends Target {
     /**
      * Put the sprite into the drag state. While in effect, setXY must be forced
      */
-    startDrag () {
+    startDrag() {
         this.dragging = true;
     }
 
     /**
      * Remove the sprite from the drag state.
      */
-    stopDrag () {
+    stopDrag() {
         this.dragging = false;
     }
 
@@ -1071,7 +1124,7 @@ class RenderedTarget extends Target {
      * Serialize sprite info, used when emitting events about the sprite
      * @returns {object} Sprite data as a simple object
      */
-    toJSON () {
+    toJSON() {
         const costumes = this.getCostumes();
         return {
             id: this.id,
@@ -1096,15 +1149,40 @@ class RenderedTarget extends Target {
             tempo: this.tempo,
             volume: this.volume,
             videoTransparency: this.videoTransparency,
-            videoState: this.videoState
+            videoState: this.videoState,
 
+            componentsOverride: this.componentsOverride,
+            exportAttribute: this.exportAttribute,
+            components: this.components,
         };
     }
+    getComponentsPublicDefinition() {
+        this.publicDefintions = []
+        this.publicDefintionsIds = []
+        for (const component of this.components) {
+            for (const definition of component.blocks.getPublicProcedureDefinition(this.blocks)) {
+                this.publicDefintions.push(definition.xml)
+                this.publicDefintionsIds.push(definition.id)
+            }
+        }
+        return this.publicDefintions
+    }
+    getComponentsPublicAttribute() {
+        let PublicAttributes = [];
+        for (const component of this.components) {
+            const localVarMap = Object.assign({}, component.variables);
+            const localVariables = Object.keys(localVarMap)
+                .filter(k => !k.startsWith('#')) // 过滤掉以 # 开头的键
+                .map(k => localVarMap[k]);
 
+            PublicAttributes.push(...localVariables);
+        }
+        return PublicAttributes;
+    }
     /**
      * Dispose, destroying any run-time properties.
      */
-    dispose () {
+    dispose() {
         if (!this.isOriginal) {
             this.runtime.changeCloneCounter(-1);
         }
