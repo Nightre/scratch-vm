@@ -244,7 +244,7 @@ class RenderedTarget extends Target {
                 this.inheritedVariables.push(variableName + cloneKey)
                 this.createVariable(
                     variableName + cloneKey,
-                    variable.name + cloneKey,
+                    variable.name,
                     variable.type,
                     variable.isCloud
                 )
