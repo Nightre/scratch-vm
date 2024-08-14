@@ -626,9 +626,7 @@ const serializeTarget = function (target, extensions) {
         obj.draggable = target.draggable;
         obj.rotationStyle = target.rotationStyle;
 
-        obj.components  = target.components ;
-        obj.componentsOverride  = target.componentsOverride ;
-        obj.exportAttribute  = target.exportAttribute ;
+        obj.components  = target.components;
     }
 
     // Add found extensions to the extensions object
@@ -1211,15 +1209,6 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
     }
     if (Object.prototype.hasOwnProperty.call(object, 'videoState')) {
         target.videoState = object.videoState;
-    }
-    if (Object.prototype.hasOwnProperty.call(object, 'exportAttribute')) {
-        target.exportAttribute = object.exportAttribute;
-    }
-    if (Object.prototype.hasOwnProperty.call(object, 'componentsOverride')) {
-        target.componentsOverride  = object.componentsOverride;
-    }
-    if (Object.prototype.hasOwnProperty.call(object, 'componentsOverride')) {
-        target.componentsOverride  = object.componentsOverride;
     }
     if (Object.prototype.hasOwnProperty.call(object, 'components')) {
         target.components = object.components;

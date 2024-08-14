@@ -1652,7 +1652,10 @@ class VirtualMachine extends EventEmitter {
      */
     emitWorkspaceUpdate () {
         // Create a list of broadcast message Ids according to the stage variables
+        this.editingTarget.updateInheritanceBlock()
+        console.log(this.editingTarget)
         const stageVariables = this.runtime.getTargetForStage().variables;
+
         let messageIds = [];
         for (const varId in stageVariables) {
             if (stageVariables[varId].type === Variable.BROADCAST_MESSAGE_TYPE) {
@@ -1690,18 +1693,16 @@ class VirtualMachine extends EventEmitter {
         const workspaceComments = Object.keys(this.editingTarget.comments)
             .map(k => this.editingTarget.comments[k])
             .filter(c => c.blockId === null);
-        const publicDefinition = this.editingTarget.getComponentsPublicDefinition()
-        const publicAttribute = this.editingTarget.getComponentsPublicAttribute()
+        // const publicDefinition = this.editingTarget.getComponentsPublicDefinition()
+        // const publicAttribute = this.editingTarget.getComponentsPublicAttribute()
 
         const xmlString = `<xml xmlns="http://www.w3.org/1999/xhtml">
                             <variables>
                                 ${globalVariables.map(v => v.toXML()).join()}
                                 ${localVariables.map(v => v.toXML(true)).join()}
-                                ${publicAttribute.map(v => v.toXML(true)).join()}
                             </variables>
                             ${workspaceComments.map(c => c.toXML()).join()}
                             ${this.editingTarget.blocks.toXML(this.editingTarget.comments)}
-                            ${publicDefinition.join()}
                         </xml>`;
 
         this.emit('workspaceUpdate', {xml: xmlString});

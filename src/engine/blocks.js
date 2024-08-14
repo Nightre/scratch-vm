@@ -32,7 +32,7 @@ class Blocks {
          * @type {Object.<string, Object>}
          */
         this._blocks = {};
-
+        this._inheritedBlocks = []
         /**
          * All top-level scripts in the workspace.
          * A list of block IDs that represent scripts (i.e., first block in script).
@@ -401,7 +401,24 @@ class Blocks {
         }
         this._cache.proceduresPopulated = true;
     }
+    duplicateBlock(block, cloneKey) {
+        const newBlock = Clone.simple(block)
+        newBlock.id += cloneKey
 
+        if (newBlock.parent) newBlock.parent += cloneKey
+        if (newBlock.next) newBlock.next += cloneKey
+
+        if (newBlock.inputs) {
+            for (const inputName in newBlock.inputs) {
+                const inputValue = newBlock.inputs[inputName]
+
+                if (inputValue.block) inputValue.block += cloneKey
+                if (inputValue.shadow) inputValue.shadow += cloneKey
+            }
+        }
+        newBlock.inherited = true
+        return newBlock
+    }
     duplicate() {
         const newBlocks = new Blocks(this.runtime, this.forceNoGlow);
         newBlocks._blocks = Clone.simple(this._blocks);
@@ -662,7 +679,7 @@ class Blocks {
      * Block management: create blocks and scripts from a `create` event
      * @param {!object} block Blockly create event to be processed
      */
-    createBlock(block) {
+    createBlock(block, inherited = false) {
         // Does the block already exist?
         // Could happen, e.g., for an unobscured shadow.
         if (Object.prototype.hasOwnProperty.call(this._blocks, block.id)) {
@@ -670,6 +687,11 @@ class Blocks {
         }
         // Create new block.
         this._blocks[block.id] = block;
+        
+        if (inherited) {
+            this._inheritedBlocks.push(block.id)
+        }
+        
         // Push block id to scripts array.
         // Blocks are added as a top-level stack if they are marked as a top-block
         // (if they were top-level XML in the event).
@@ -952,18 +974,24 @@ class Blocks {
 
         // Delete any script starting with this block.
         this._deleteScript(blockId);
-
+        if (this._inheritedBlocks.includes(blockId)) {
+            this._inheritedBlocks.filter(data => data.id != blockId)
+        }
         // Delete block itself.
         delete this._blocks[blockId];
 
         this.resetCache();
         this.emitProjectChanged();
     }
-
+    deleteAllinheritedBlocks() {
+        this._inheritedBlocks.forEach(blockId => this.deleteBlock(blockId));
+        this._inheritedBlocks = []
+    }
     /**
      * Delete all blocks and their associated scripts.
      */
     deleteAllBlocks() {
+        this._inheritedBlocks = []
         const blockIds = Object.keys(this._blocks);
         blockIds.forEach(blockId => this.deleteBlock(blockId));
     }

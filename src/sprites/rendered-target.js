@@ -172,41 +172,42 @@ class RenderedTarget extends Target {
         /** @type {Array} */
         this.components = []
         /** @type {Array} */
-        this.componentsOverride = []
-        // key=属性明 value=默认值
-        this.exportAttribute = {}
+        // this.componentsOverride = []
+        // // key=属性明 value=默认值
+        // this.exportAttribute = {}
 
         this.publicDefintions = []
         this.publicDefintionsIds = []
+
+        this.inheritedVariables = []
     }
 
-    getAtribute(name) {
-        return this.exportAttribute[name]
-    }
-    removeAtribute(name) {
-        delete this.exportAttribute[name]
-        window.vm.emitTargetsUpdate(true)
-    }
-    setAtribute(name, data) {
-        this.exportAttribute[name] = data
-        this.runtime.requestTargetsUpdate(this);
-        window.vm.emitTargetsUpdate(true)
-    }
+    // getAtribute(name) {
+    //     return this.exportAttribute[name]
+    // }
+    // removeAtribute(name) {
+    //     delete this.exportAttribute[name]
+    //     window.vm.emitTargetsUpdate(true)
+    // }
+    // setAtribute(name, data) {
+    //     this.exportAttribute[name] = data
+    //     this.runtime.requestTargetsUpdate(this);
+    //     window.vm.emitTargetsUpdate(true)
+    // }
 
-    setOverride(index, name, data) {
-        this.componentsOverride[index][name] = data
-        this.runtime.requestTargetsUpdate(this);
-        window.vm.emitTargetsUpdate(true)
-    }
-    removeOverride(index, name) {
-        delete this.componentsOverride[index][name]
-        this.runtime.requestTargetsUpdate(this);
-        window.vm.emitTargetsUpdate(true)
-    }
+    // setOverride(index, name, data) {
+    //     this.componentsOverride[index][name] = data
+    //     this.runtime.requestTargetsUpdate(this);
+    //     window.vm.emitTargetsUpdate(true)
+    // }
+    // removeOverride(index, name) {
+    //     delete this.componentsOverride[index][name]
+    //     this.runtime.requestTargetsUpdate(this);
+    //     window.vm.emitTargetsUpdate(true)
+    // }
 
     addComponet(componets) {
         this.components.push(componets)
-        this.componentsOverride.push({})
         this.runtime.requestTargetsUpdate(this);
         window.vm.emitTargetsUpdate(true)
         window.vm.emitWorkspaceUpdate()
@@ -214,13 +215,47 @@ class RenderedTarget extends Target {
     removeComponet(targetComponentIndex) {
         if (targetComponentIndex >= 0 && targetComponentIndex < this.components.length) {
             this.components.splice(targetComponentIndex, 1);
-            this.componentsOverride.splice(targetComponentIndex, 1);
             this.runtime.requestTargetsUpdate(this);
         } else {
             console.warn("Invalid component index:", targetComponentIndex);
         }
         window.vm.emitTargetsUpdate(true)
         window.vm.emitWorkspaceUpdate()
+    }
+    // TODO:克隆体继承components并且updateInheritanceBlock
+
+    deleteInheritedVariables() {
+        for (const key of this.inheritedVariables) {
+            this.deleteVariable(key)
+        }
+    }
+
+    updateInheritanceBlock() {
+        const blocks = this.blocks
+        blocks.deleteAllinheritedBlocks()
+        this.deleteInheritedVariables()
+        this.inheritedVariables = []
+        for (const componentId in this.components) {
+            const component = this.components[componentId]
+            const cloneKey = `_${componentId}_`
+
+            for (const variableName in component.variables) {
+                const variable = component.variables[variableName]
+                this.inheritedVariables.push(variableName + cloneKey)
+                this.createVariable(
+                    variableName + cloneKey,
+                    variable.name + cloneKey,
+                    variable.type,
+                    variable.isCloud
+                )
+            }
+
+            for (const parentBlock of Object.values(component.blocks._blocks)) {
+                const newBlock = blocks.duplicateBlock(parentBlock, cloneKey)
+                console.log(newBlock)
+                blocks.createBlock(newBlock, true)
+            }
+        }
     }
 
     /**
@@ -1066,6 +1101,7 @@ class RenderedTarget extends Target {
      * For a rendered target, this clears graphic effects.
      */
     onGreenFlag() {
+        this.updateInheritanceBlock()
         this.clearEffects();
     }
 
@@ -1152,7 +1188,6 @@ class RenderedTarget extends Target {
             videoState: this.videoState,
 
             componentsOverride: this.componentsOverride,
-            exportAttribute: this.exportAttribute,
             components: this.components,
         };
     }
