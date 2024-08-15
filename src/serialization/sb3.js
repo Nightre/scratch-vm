@@ -206,6 +206,8 @@ const serializeBlock = function (block) {
     obj.inputs = serializeInputs(block.inputs);
     obj.fields = serializeFields(block.fields);
     obj.shadow = block.shadow;
+    obj.shadow = block.shadow;
+    obj.inherited = block.inherited
     if (block.topLevel) {
         obj.topLevel = true;
         obj.x = block.x ? Math.round(block.x) : 0;
@@ -626,7 +628,8 @@ const serializeTarget = function (target, extensions) {
         obj.draggable = target.draggable;
         obj.rotationStyle = target.rotationStyle;
 
-        obj.components  = target.components;
+        obj.components = target.components.map(target => target.sprite.name);
+        obj.showComponents = target.showComponents
     }
 
     // Add found extensions to the extensions object
@@ -1048,6 +1051,10 @@ const deserializeBlocks = function (blocks) {
             continue;
         }
         const block = blocks[blockId];
+        if (block.inherited) {
+            delete blocks[blockId];
+            continue;
+        }
         if (Array.isArray(block)) {
             // this is one of the primitives
             // delete the old entry in object.blocks and replace it w/the
@@ -1212,6 +1219,9 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
     }
     if (Object.prototype.hasOwnProperty.call(object, 'components')) {
         target.components = object.components;
+    }
+    if (Object.prototype.hasOwnProperty.call(object, 'showComponents')) {
+        target.showComponents = object.showComponents;
     }
     if (Object.prototype.hasOwnProperty.call(object, 'variables')) {
         for (const varId in object.variables) {

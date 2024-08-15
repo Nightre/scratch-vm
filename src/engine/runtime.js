@@ -2965,14 +2965,16 @@ class Runtime extends EventEmitter {
                 const blockForThread = thread.blockGlowInFrame;
                 if (thread.requestScriptGlowInFrame || thread.stackClick) {
                     let script = target.blocks.getTopLevelScript(blockForThread);
-                    if (!script) {
-                        // Attempt to find in flyout blocks.
-                        script = this.flyoutBlocks.getTopLevelScript(
-                            blockForThread
-                        );
-                    }
-                    if (script) {
-                        requestedGlowsThisFrame.push(script);
+                    if (script && !script.hide) {
+                        if (!script) {
+                            // Attempt to find in flyout blocks.
+                            script = this.flyoutBlocks.getTopLevelScript(
+                                blockForThread
+                            );
+                        }
+                        if (script) {
+                            requestedGlowsThisFrame.push(script.id);
+                        }                        
                     }
                 }
             }

@@ -270,7 +270,7 @@ class Blocks {
         while (block.parent !== null) {
             block = this._blocks[block.parent];
         }
-        return block.id;
+        return block;
     }
 
     /**
@@ -401,7 +401,7 @@ class Blocks {
         }
         this._cache.proceduresPopulated = true;
     }
-    duplicateBlock(block, cloneKey) {
+    inheritBlock(block, cloneKey, show) {
         const newBlock = Clone.simple(block)
         newBlock.id += cloneKey
 
@@ -417,11 +417,18 @@ class Blocks {
             }
         }
         newBlock.inherited = true
+        newBlock.hide = !show
         return newBlock
     }
     duplicate() {
         const newBlocks = new Blocks(this.runtime, this.forceNoGlow);
         newBlocks._blocks = Clone.simple(this._blocks);
+        // newBlocks._blocks.forEach(block => {
+        //     if (block.inherited) {
+        //         delete block.inherited
+        //     }
+        //     console.log(block)
+        // })
         newBlocks._scripts = Clone.simple(this._scripts);
         return newBlocks;
     }
@@ -687,11 +694,11 @@ class Blocks {
         }
         // Create new block.
         this._blocks[block.id] = block;
-        
+
         if (inherited) {
             this._inheritedBlocks.push(block.id)
         }
-        
+
         // Push block id to scripts array.
         // Blocks are added as a top-level stack if they are marked as a top-block
         // (if they were top-level XML in the event).
@@ -1232,6 +1239,8 @@ class Blocks {
         // to a blockId for non-existent blocks. Until we track down that behavior,
         // this early exit allows the project to load.
         if (!block) return;
+        if (block.hide) return;
+
         // Encode properties of this block.
         const tagName = (block.shadow) ? 'shadow' : 'block';
         let xmlString =
@@ -1239,6 +1248,7 @@ class Blocks {
                 id="${xmlEscape(block.id)}"
                 type="${xmlEscape(block.opcode)}"
                 ${block.topLevel ? `x="${block.x}" y="${block.y}"` : ''}
+                ${block.inherited ? `inherited="true"` : ''}
             >`;
         const commentId = block.comment;
         if (commentId) {

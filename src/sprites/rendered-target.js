@@ -170,6 +170,7 @@ class RenderedTarget extends Target {
 
         this.interpolationData = null;
         /** @type {Array} */
+        this.showComponents = []
         this.components = []
         /** @type {Array} */
         // this.componentsOverride = []
@@ -206,21 +207,42 @@ class RenderedTarget extends Target {
     //     window.vm.emitTargetsUpdate(true)
     // }
 
-    addComponet(componets) {
-        this.components.push(componets)
-        this.runtime.requestTargetsUpdate(this);
-        window.vm.emitTargetsUpdate(true)
+    addComponet(componet) {
+        if (this.isComponetCyclic(componet)) {
+            return false
+        }
+        this.components.push(componet)
+        this.showComponents.push(true)
+        //window.vm.emitTargetsUpdate(true)
         window.vm.emitWorkspaceUpdate()
+        this.runtime.requestTargetsUpdate(this);
+        return true
+    }
+    isComponetCyclic(component) {
+        // 检查当前组件是否是父组件的子组件
+        if (component === this) {
+            return true;
+        }
+
+        // 递归检查所有子组件
+        for (let child of component.components) {
+            if (this.isComponetCyclic(child, this)) {
+                return true;
+            }
+        }
+
+        return false;
     }
     removeComponet(targetComponentIndex) {
         if (targetComponentIndex >= 0 && targetComponentIndex < this.components.length) {
             this.components.splice(targetComponentIndex, 1);
+            this.showComponents.splice(targetComponentIndex, 1);
             this.runtime.requestTargetsUpdate(this);
         } else {
             console.warn("Invalid component index:", targetComponentIndex);
         }
-        window.vm.emitTargetsUpdate(true)
         window.vm.emitWorkspaceUpdate()
+        this.runtime.requestTargetsUpdate(this);
     }
     // TODO:克隆体继承components并且updateInheritanceBlock
 
@@ -228,6 +250,11 @@ class RenderedTarget extends Target {
         for (const key of this.inheritedVariables) {
             this.deleteVariable(key)
         }
+    }
+    toggleShowComponents(index) {
+        this.showComponents[index] = !this.showComponents[index]
+        window.vm.emitWorkspaceUpdate()
+        this.runtime.requestTargetsUpdate(this);
     }
 
     updateInheritanceBlock() {
@@ -251,8 +278,7 @@ class RenderedTarget extends Target {
             }
 
             for (const parentBlock of Object.values(component.blocks._blocks)) {
-                const newBlock = blocks.duplicateBlock(parentBlock, cloneKey)
-                console.log(newBlock)
+                const newBlock = blocks.inheritBlock(parentBlock, cloneKey, this.showComponents[componentId])
                 blocks.createBlock(newBlock, true)
             }
         }
@@ -1186,9 +1212,8 @@ class RenderedTarget extends Target {
             volume: this.volume,
             videoTransparency: this.videoTransparency,
             videoState: this.videoState,
-
-            componentsOverride: this.componentsOverride,
-            components: this.components,
+            components: this.components.map(target => target.id),
+            showComponents: this.showComponents,
         };
     }
     getComponentsPublicDefinition() {
