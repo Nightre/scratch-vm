@@ -14,30 +14,54 @@ class Variable {
      * @param {boolean} isCloud Whether the variable is stored in the cloud.
      * @constructor
      */
-    constructor (id, name, type, isCloud) {
+    constructor(id, name, type, isCloud, target) {
         this.id = id || uid();
         this.name = name;
         this.type = type;
         this.isCloud = isCloud;
-        switch (this.type) {
-        case Variable.SCALAR_TYPE:
-            this.value = 0;
-            break;
-        case Variable.LIST_TYPE:
-            this.value = [];
-            break;
-        case Variable.BROADCAST_MESSAGE_TYPE:
-            this.value = this.name;
-            break;
-        default:
-            throw new Error(`Invalid variable type: ${this.type}`);
+        /** @type {Target} */
+        this.target = target
+        // 用于存储实际的 value
+        this._value = this.initializeValue(type);
+    }
+
+    // 初始化 value 的方法
+    initializeValue(type) {
+        switch (type) {
+            case Variable.SCALAR_TYPE:
+                return 0;
+            case Variable.LIST_TYPE:
+                return [];
+            case Variable.BROADCAST_MESSAGE_TYPE:
+                return this.name;
+            case Variable.OBJECT_TYPE:
+                return {};
+            default:
+                throw new Error(`Invalid variable type: ${type}`);
         }
     }
 
-    toXML (isLocal) {
+    // 定义 getter 和 setter
+    get value() {
+        return this._value;
+    }
+
+    set value(newValue) {
+        if (typeof newValue == "object" && this.type == Variable.SCALAR_TYPE) {
+            this.type = Variable.OBJECT_TYPE
+        } else if (this.type == Variable.OBJECT_TYPE) {
+            this.type = Variable.SCALAR_TYPE
+        }
+        //console.log(this.target)
+        this.target.returnObject[this.name] = newValue
+        this._value = newValue;
+    }
+
+    toXML(isLocal) {
         isLocal = (isLocal === true);
-        return `<variable type="${this.type}" id="${this.id}" islocal="${isLocal
-        }" iscloud="${this.isCloud}">${xmlEscape(this.name)}</variable>`;
+        const blocklyType = (this.type == Variable.OBJECT_TYPE ? Variable.SCALAR_TYPE : this.type)
+        return `<variable type="${blocklyType}" id="${this.id}" islocal="${isLocal
+            }" iscloud="${this.isCloud}">${xmlEscape(this.name)}</variable>`;
     }
 
     /**
@@ -46,7 +70,7 @@ class Variable {
      * for compatibility with blockly.
      * @const {string}
      */
-    static get SCALAR_TYPE () {
+    static get SCALAR_TYPE() {
         return ''; // used by compiler
     }
 
@@ -54,15 +78,19 @@ class Variable {
      * Type representation for list variables.
      * @const {string}
      */
-    static get LIST_TYPE () {
+    static get LIST_TYPE() {
         return 'list'; // used by compiler
     }
 
+    static get OBJECT_TYPE() {
+        return 'object'; // used by compiler
+    }
+
     /**
-     * Type representation for list variables.
+     * Type representation for broadcast message variables.
      * @const {string}
      */
-    static get BROADCAST_MESSAGE_TYPE () {
+    static get BROADCAST_MESSAGE_TYPE() {
         return 'broadcast_msg';
     }
 }

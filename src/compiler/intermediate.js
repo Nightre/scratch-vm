@@ -7,7 +7,7 @@
  * Scripts do not necessarily have hats.
  */
 class IntermediateScript {
-    constructor () {
+    constructor (functionData) {
         /**
          * The ID of the top block of this script.
          * @type {string}

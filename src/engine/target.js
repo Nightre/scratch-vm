@@ -132,7 +132,7 @@ class Target extends EventEmitter {
         if (variable) return variable;
 
         // No variable with this name exists - create it locally.
-        const newVariable = new Variable(id, name, Variable.SCALAR_TYPE, false);
+        const newVariable = new Variable(id, name, Variable.SCALAR_TYPE, false, this);
         this.variables[id] = newVariable;
         return newVariable;
     }
@@ -255,7 +255,7 @@ class Target extends EventEmitter {
         if (list) return list;
 
         // No variable with this name exists - create it locally.
-        const newList = new Variable(id, name, Variable.LIST_TYPE, false);
+        const newList = new Variable(id, name, Variable.LIST_TYPE, false, this);
         this.variables[id] = newList;
         return newList;
     }
@@ -271,7 +271,7 @@ class Target extends EventEmitter {
      */
     createVariable(id, name, type, isCloud) {
         if (!Object.prototype.hasOwnProperty.call(this.variables, id)) {
-            const newVariable = new Variable(id, name, type, false);
+            const newVariable = new Variable(id, name, type, false, this);
             if (isCloud && this.isStage && this.runtime.canAddCloudVariable()) {
                 newVariable.isCloud = true;
                 this.runtime.addCloudVariable();
@@ -413,14 +413,15 @@ class Target extends EventEmitter {
      * @return {?Variable} The duplicated variable, or null if
      * the original variable was not found.
      */
-    duplicateVariable(id, optKeepOriginalId) {
+    duplicateVariable(id, optKeepOriginalId, target) {
         if (Object.prototype.hasOwnProperty.call(this.variables, id)) {
             const originalVariable = this.variables[id];
             const newVariable = new Variable(
                 optKeepOriginalId ? id : null, // conditionally keep original id or generate a new one
                 originalVariable.name,
                 originalVariable.type,
-                originalVariable.isCloud
+                originalVariable.isCloud,
+                target
             );
             if (newVariable.type === Variable.LIST_TYPE) {
                 newVariable.value = originalVariable.value.slice(0);
@@ -601,7 +602,7 @@ class Target extends EventEmitter {
         if (existingLocalVar) {
             newVarId = existingLocalVar.id;
         } else {
-            const newVar = new Variable(null, varName, varType);
+            const newVar = new Variable(null, varName, varType, false, sprite);
             newVarId = newVar.id;
             sprite.variables[newVarId] = newVar;
         }

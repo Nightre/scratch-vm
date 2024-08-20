@@ -2010,7 +2010,7 @@ class Runtime extends EventEmitter {
 
         // tw: compile new threads. Do not attempt to compile monitor threads.
         if (!(opts && opts.updateMonitor) && this.compilerOptions.enabled) {
-            thread.tryCompile();
+            thread.tryCompile(opts?.functionData);
         }
 
         return thread;
@@ -3079,7 +3079,7 @@ class Runtime extends EventEmitter {
      * @param {string} value Value to show associated with the block.
      */
     visualReport (blockId, value) {
-        this.emit(Runtime.VISUAL_REPORT, {id: blockId, value: String(value)});
+        this.emit(Runtime.VISUAL_REPORT, {id: blockId, value: value});
     }
 
     /**
@@ -3326,8 +3326,8 @@ class Runtime extends EventEmitter {
         const varType = (typeof optVarType === 'string') ? optVarType : Variable.SCALAR_TYPE;
         const allVariableNames = this.getAllVarNamesOfType(varType);
         const newName = StringUtil.unusedName(variableName, allVariableNames);
-        const variable = new Variable(optVarId || uid(), newName, varType);
         const stage = this.getTargetForStage();
+        const variable = new Variable(optVarId || uid(), newName, varType, stage);
         stage.variables[variable.id] = variable;
         return variable;
     }

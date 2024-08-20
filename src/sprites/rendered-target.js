@@ -4,6 +4,7 @@ const Cast = require('../util/cast');
 const Clone = require('../util/clone');
 const Target = require('../engine/target');
 const StageLayering = require('../engine/stage-layering');
+const Thread = require('../engine/thread');
 
 /**
  * Rendered target: instance of a sprite (clone), or the stage.
@@ -173,16 +174,64 @@ class RenderedTarget extends Target {
         this.showComponents = []
         this.components = []
         /** @type {Array} */
-        // this.componentsOverride = []
-        // // key=属性明 value=默认值
-        // this.exportAttribute = {}
-
-        this.publicDefintions = []
-        this.publicDefintionsIds = []
+        this.returnObject = {}
 
         this.inheritedVariables = []
+        this.referencedComponents = []
+        this.updateData()
     }
+    updateData(){
+        console.log("updateData", this.blocks._cache.procedureDefinitions)
+        const returnVar = {}
+        for (const variableId in this.variables) {
+            const variablesContent = this.variables[variableId]
+            returnVar[variablesContent.name] = variablesContent.value
+        }
+        const costumes = this.getCostumes();
+        const returnFunc = {}
+        const procedureDefinitions = this.blocks._cache.procedureDefinitions
+        //const procedureParamNames = this.blocks._cache.procedureParamNames
 
+        for (const functionName in procedureDefinitions) {
+            returnFunc[functionName.split("%")[0].trim()] = (...args) => {
+                return this.runtime._pushThread(procedureDefinitions[functionName], this, {
+                    functionData: {
+                        code: functionName,
+                        arguments: args
+                    }
+                })
+            }
+        }
+        Object.keys(this.returnObject).forEach(key => {
+            delete this.returnObject[key];
+        });
+        Object.assign(this.returnObject, {
+            id: this.id,
+            name: this.getName(),
+            isStage: this.isStage,
+            x: this.x,
+            y: this.y,
+            size: this.size,
+            direction: this.direction,
+            draggable: this.draggable,
+            currentCostume: this.currentCostume,
+            costume: costumes[this.currentCostume],
+            //costumeCount: costumes.length,
+            visible: this.visible,
+            rotationStyle: this.rotationStyle,
+            //comments: this.comments,
+            //blocks: this.blocks._blocks,
+            //variables: this.variables,
+            costumes: costumes,
+            sounds: this.getSounds(),
+            volume: this.volume,
+            ...returnVar,
+            ...returnFunc
+        })
+    }
+    getData() {
+        return this.returnObject
+    }
     // getAtribute(name) {
     //     return this.exportAttribute[name]
     // }
@@ -206,16 +255,22 @@ class RenderedTarget extends Target {
     //     this.runtime.requestTargetsUpdate(this);
     //     window.vm.emitTargetsUpdate(true)
     // }
-
-    addComponet(componet) {
-        if (this.isComponetCyclic(componet)) {
+    getPreviousClone() {
+        const clones = this.sprite.clones
+        return clones[clones.length - 1]
+    }
+    addComponet(componet, emit = true) {
+        if (emit && this.isComponetCyclic(componet)) {
             return false
         }
         this.components.push(componet)
+        componet.referencedComponents.push(this)
         this.showComponents.push(true)
         //window.vm.emitTargetsUpdate(true)
-        window.vm.emitWorkspaceUpdate()
-        this.runtime.requestTargetsUpdate(this);
+        if (emit) {
+            window.vm.emitWorkspaceUpdate()
+            this.runtime.requestTargetsUpdate(this);
+        }
         return true
     }
     isComponetCyclic(component) {
@@ -233,16 +288,23 @@ class RenderedTarget extends Target {
 
         return false;
     }
-    removeComponet(targetComponentIndex) {
+    referencedComponentDisposed(components) {
+        this.removeComponet(this.components.indexOf(components))
+    }
+    removeComponet(targetComponentIndex, emit = true) {
         if (targetComponentIndex >= 0 && targetComponentIndex < this.components.length) {
+            this.components[targetComponentIndex].referencedComponents.filter(cop => cop != this)
             this.components.splice(targetComponentIndex, 1);
             this.showComponents.splice(targetComponentIndex, 1);
+
             this.runtime.requestTargetsUpdate(this);
         } else {
             console.warn("Invalid component index:", targetComponentIndex);
         }
-        window.vm.emitWorkspaceUpdate()
-        this.runtime.requestTargetsUpdate(this);
+        if (emit) {
+            window.vm.emitWorkspaceUpdate()
+            this.runtime.requestTargetsUpdate(this);
+        }
     }
     // TODO:克隆体继承components并且updateInheritanceBlock
 
@@ -1092,6 +1154,7 @@ class RenderedTarget extends Target {
         newClone.rotationStyle = this.rotationStyle;
         newClone.effects = Clone.simple(this.effects);
         newClone.variables = this.duplicateVariables();
+        newClone.variables.forEach(variables => variables.target = newClone)
         newClone._edgeActivatedHatValues = Clone.simple(this._edgeActivatedHatValues);
         newClone.initDrawable(StageLayering.SPRITE_LAYER);
         newClone.updateAllDrawableProperties();
@@ -1117,6 +1180,7 @@ class RenderedTarget extends Target {
             newTarget.rotationStyle = this.rotationStyle;
             newTarget.effects = JSON.parse(JSON.stringify(this.effects));
             newTarget.variables = this.duplicateVariables(newTarget.blocks);
+            newTarget.variables.forEach(variables => variables.target = newTarget)
             newTarget.updateAllDrawableProperties();
             return newTarget;
         });
@@ -1127,6 +1191,7 @@ class RenderedTarget extends Target {
      * For a rendered target, this clears graphic effects.
      */
     onGreenFlag() {
+        this.updateData()
         this.updateInheritanceBlock()
         this.clearEffects();
     }
@@ -1213,6 +1278,7 @@ class RenderedTarget extends Target {
             videoTransparency: this.videoTransparency,
             videoState: this.videoState,
             components: this.components.map(target => target.id),
+            componentsName: this.components.map(target => target.sprite.name),
             showComponents: this.showComponents,
         };
     }
@@ -1243,9 +1309,16 @@ class RenderedTarget extends Target {
      * Dispose, destroying any run-time properties.
      */
     dispose() {
+        if (this.isOriginal) {
+            this.referencedComponents.forEach(component => {
+                component.referencedComponentDisposed(this, false)
+            })
+        }
+
         if (!this.isOriginal) {
             this.runtime.changeCloneCounter(-1);
         }
+
         this.runtime.stopForTarget(this);
         this.runtime.removeExecutable(this);
         this.sprite.removeClone(this);

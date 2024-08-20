@@ -387,7 +387,6 @@ runtimeFunctions.distance = `const distance = menu => {
     const dy = thread.target.y - targetY;
     return Math.sqrt((dx * dx) + (dy * dy));
 }`;
-
 /**
  * Convert a Scratch list index to a JavaScript list index.
  * "all" is not considered as a list index.
@@ -588,7 +587,7 @@ runtimeFunctions.yieldThenCallGenerator = `const yieldThenCallGenerator = functi
  * Step a compiled thread.
  * @param {Thread} thread The thread to step.
  */
-const execute = thread => {
+const execute = (thread) => {
     globalState.thread = thread;
     thread.generator.next();
 };

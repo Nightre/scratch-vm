@@ -55,7 +55,8 @@ const CORE_EXTENSIONS = [
     'operator',
     'procedures',
     'sensing',
-    'sound'
+    'sound',
+    'structures'
 ];
 
 // Constants referring to 'primitive' blocks that are usually shadows,
@@ -535,12 +536,15 @@ const serializeVariables = function (variables) {
             continue;
         }
         if (v.type === Variable.LIST_TYPE) {
-            obj.lists[varId] = [v.name, makeSafeForJSON(v.value)];
+            obj.lists[varId] = [v.name, makeSafeForJSON(v.value), false];
             continue;
         }
-
+        if (v.type === Variable.OBJECT_TYPE) {
+            obj.variables[varId] = [v.name, JSON.stringify(v.value), true];
+            continue;
+        }
         // otherwise should be a scalar type
-        obj.variables[varId] = [v.name, makeSafeForJSON(v.value)];
+        obj.variables[varId] = [v.name, makeSafeForJSON(v.value), false];
         // only scalar vars have the potential to be cloud vars
         if (v.isCloud) obj.variables[varId].push(true);
     }
@@ -627,8 +631,7 @@ const serializeTarget = function (target, extensions) {
         obj.direction = target.direction;
         obj.draggable = target.draggable;
         obj.rotationStyle = target.rotationStyle;
-
-        obj.components = target.components.map(target => target.sprite.name);
+        obj.componentsName = target.componentsName
         obj.showComponents = target.showComponents
     }
 
@@ -1217,8 +1220,8 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
     if (Object.prototype.hasOwnProperty.call(object, 'videoState')) {
         target.videoState = object.videoState;
     }
-    if (Object.prototype.hasOwnProperty.call(object, 'components')) {
-        target.components = object.components;
+    if (Object.prototype.hasOwnProperty.call(object, 'componentsName')) {
+        target.componentsName = object.componentsName;
     }
     if (Object.prototype.hasOwnProperty.call(object, 'showComponents')) {
         target.showComponents = object.showComponents;
@@ -1235,12 +1238,18 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
             const newVariable = new Variable(
                 varId, // var id is the index of the variable desc array in the variables obj
                 variable[0], // name of the variable
-                Variable.SCALAR_TYPE, // type of the variable
-                isCloud
+                variable[2] ? Variable.OBJECT_TYPE : Variable.SCALAR_TYPE, // type of the variable
+                isCloud, target
             );
             if (isCloud) runtime.addCloudVariable();
-            newVariable.value = variable[1];
+            if (variable[2]) {
+                newVariable.value = JSON.parse(variable[1]);
+            } else {
+                newVariable.value = variable[1];
+            }
+
             target.variables[newVariable.id] = newVariable;
+            console.log(newVariable.id, variable, newVariable)
         }
     }
     if (Object.prototype.hasOwnProperty.call(object, 'lists')) {
@@ -1250,7 +1259,8 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
                 listId,
                 list[0],
                 Variable.LIST_TYPE,
-                false
+                false,
+                target
             );
             newList.value = list[1];
             target.variables[newList.id] = newList;
@@ -1263,7 +1273,8 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
                 broadcastId,
                 broadcast,
                 Variable.BROADCAST_MESSAGE_TYPE,
-                false
+                false,
+                target
             );
             // no need to explicitly set the value, variable constructor
             // sets the value to the same as the name for broadcast msgs

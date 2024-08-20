@@ -776,7 +776,15 @@ class VirtualMachine extends EventEmitter {
             // Remove layerOrder property after use.
             this.runtime.executableTargets.sort((a, b) => a.layerOrder - b.layerOrder);
             targets.forEach(target => {
-                target.components = target.components.map(name => this.runtime.getSpriteTargetByName(name))
+                //target.components = target.components.map(name => this.runtime.getSpriteTargetByName(name))
+                if (target.componentsName) {
+                    target.components = []
+                    for (const component of target.componentsName) {
+                        target.addComponet(this.runtime.getSpriteTargetByName(component), false)
+                    }
+                }
+
+
                 delete target.layerOrder;
             });
 

@@ -1,9 +1,9 @@
 const {IRGenerator} = require('./irgen');
 const JSGenerator = require('./jsgen');
 
-const compile = thread => {
+const compile = (thread, functionData) => {
     const irGenerator = new IRGenerator(thread);
-    const ir = irGenerator.generate();
+    const ir = irGenerator.generate(functionData);
 
     const procedures = {};
     const target = thread.target;
