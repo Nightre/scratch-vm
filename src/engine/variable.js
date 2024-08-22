@@ -19,10 +19,11 @@ class Variable {
         this.name = name;
         this.type = type;
         this.isCloud = isCloud;
-        /** @type {Target} */
         this.target = target
         // 用于存储实际的 value
         this._value = this.initializeValue(type);
+        this.value = this._value
+        this.target.returnObject[this.name] = this.value
     }
 
     // 初始化 value 的方法
@@ -34,8 +35,8 @@ class Variable {
                 return [];
             case Variable.BROADCAST_MESSAGE_TYPE:
                 return this.name;
-            case Variable.OBJECT_TYPE:
-                return {};
+            // case Variable.OBJECT_TYPE:
+            //     return {};
             default:
                 throw new Error(`Invalid variable type: ${type}`);
         }
@@ -47,11 +48,11 @@ class Variable {
     }
 
     set value(newValue) {
-        if (typeof newValue == "object" && this.type == Variable.SCALAR_TYPE) {
-            this.type = Variable.OBJECT_TYPE
-        } else if (this.type == Variable.OBJECT_TYPE) {
-            this.type = Variable.SCALAR_TYPE
-        }
+        // if (typeof newValue == "object" && this.type == Variable.SCALAR_TYPE) {
+        //     this.type = Variable.OBJECT_TYPE
+        // } else if (this.type == Variable.OBJECT_TYPE) {
+        //     this.type = Variable.SCALAR_TYPE
+        // }
         //console.log(this.target)
         this.target.returnObject[this.name] = newValue
         this._value = newValue;
@@ -81,6 +82,7 @@ class Variable {
     static get LIST_TYPE() {
         return 'list'; // used by compiler
     }
+
 
     static get OBJECT_TYPE() {
         return 'object'; // used by compiler

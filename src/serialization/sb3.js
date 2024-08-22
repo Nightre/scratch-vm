@@ -536,17 +536,19 @@ const serializeVariables = function (variables) {
             continue;
         }
         if (v.type === Variable.LIST_TYPE) {
-            obj.lists[varId] = [v.name, makeSafeForJSON(v.value), false];
+            obj.lists[varId] = [v.name, makeSafeForJSON(v.value)];
             continue;
         }
-        if (v.type === Variable.OBJECT_TYPE) {
-            obj.variables[varId] = [v.name, JSON.stringify(v.value), true];
-            continue;
+        
+        if (typeof v.value == "object") {
+            obj.variables[varId] = [v.name, v.value];
+        } else {
+            // otherwise should be a scalar type
+            obj.variables[varId] = [v.name, makeSafeForJSON(v.value)];
+            // only scalar vars have the potential to be cloud vars
+            if (v.isCloud) obj.variables[varId].push(true);            
         }
-        // otherwise should be a scalar type
-        obj.variables[varId] = [v.name, makeSafeForJSON(v.value), false];
-        // only scalar vars have the potential to be cloud vars
-        if (v.isCloud) obj.variables[varId].push(true);
+
     }
     return obj;
 };
@@ -1235,21 +1237,18 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
             // - the runtime can support another cloud variable
             const isCloud = (variable.length === 3) && variable[2] &&
                 object.isStage && runtime.canAddCloudVariable();
+
             const newVariable = new Variable(
                 varId, // var id is the index of the variable desc array in the variables obj
                 variable[0], // name of the variable
-                variable[2] ? Variable.OBJECT_TYPE : Variable.SCALAR_TYPE, // type of the variable
+                Variable.SCALAR_TYPE, // type of the variable
                 isCloud, target
             );
             if (isCloud) runtime.addCloudVariable();
-            if (variable[2]) {
-                newVariable.value = JSON.parse(variable[1]);
-            } else {
-                newVariable.value = variable[1];
-            }
-
+            
+            newVariable.value = variable[1];
+            
             target.variables[newVariable.id] = newVariable;
-            console.log(newVariable.id, variable, newVariable)
         }
     }
     if (Object.prototype.hasOwnProperty.call(object, 'lists')) {
@@ -1572,6 +1571,7 @@ const deserialize = async function (json, runtime, zip, isSingleSprite) {
         .sort((a, b) => a.layerOrder - b.layerOrder);
 
     const monitorObjects = json.monitors || [];
+    
     return fontPromise.then(() => targetObjects.map(target => parseScratchAssets(target, runtime, zip)))
         // Force this promise to wait for the next loop in the js tick. Let
         // storage have some time to send off asset requests.

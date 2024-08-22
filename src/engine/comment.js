@@ -33,7 +33,11 @@ class Comment {
             this.y}" w="${this.width}" h="${this.height}" pinned="${
             this.blockId !== null}" minimized="${this.minimized}">${xmlEscape(this.text)}</comment>`;
     }
-
+    clone(){
+        const newComment = new Comment(this.id, this.text, this.x, this.y, this.width, this.height, this.minimized)
+        newComment.blockId = this.blockId
+        return newComment
+    }
     // TODO choose min and defaults for width and height
     static get MIN_WIDTH () {
         return 20;

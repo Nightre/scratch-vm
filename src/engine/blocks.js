@@ -401,23 +401,24 @@ class Blocks {
         }
         this._cache.proceduresPopulated = true;
     }
-    inheritBlock(block, cloneKey, show) {
+    inheritBlock(block, show) {
         const newBlock = Clone.simple(block)
-        newBlock.id += cloneKey
+        // newBlock.id += cloneKey
 
-        if (newBlock.parent) newBlock.parent += cloneKey
-        if (newBlock.next) newBlock.next += cloneKey
+        // if (newBlock.parent) newBlock.parent += cloneKey
+        // if (newBlock.next) newBlock.next += cloneKey
 
-        if (newBlock.inputs) {
-            for (const inputName in newBlock.inputs) {
-                const inputValue = newBlock.inputs[inputName]
+        // if (newBlock.inputs) {
+        //     for (const inputName in newBlock.inputs) {
+        //         const inputValue = newBlock.inputs[inputName]
 
-                if (inputValue.block) inputValue.block += cloneKey
-                if (inputValue.shadow) inputValue.shadow += cloneKey
-            }
-        }
+        //         if (inputValue.block) inputValue.block += cloneKey
+        //         if (inputValue.shadow) inputValue.shadow += cloneKey
+        //     }
+        // }
         newBlock.inherited = true
         newBlock.hide = !show
+        delete newBlock.comment
         return newBlock
     }
     duplicate() {
@@ -1233,7 +1234,7 @@ class Blocks {
      * @param {object<string, Comment>} comments Map of comments referenced by id
      * @return {string} String of XML representing this block and any children.
      */
-    blockToXML(blockId, comments, inherit = false) {
+    blockToXML(blockId, comments) {
         const block = this._blocks[blockId];
         // block should exist, but currently some blocks' next property point
         // to a blockId for non-existent blocks. Until we track down that behavior,

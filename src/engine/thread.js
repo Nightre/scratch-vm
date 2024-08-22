@@ -468,7 +468,10 @@ class Thread {
         if (!this.blockContainer) {
             return;
         }
-
+        let updateAfterCompile = false
+        if (!this.blockContainer._cache.proceduresPopulated) {
+            updateAfterCompile = true
+        }
         // importing the compiler here avoids circular dependency issues
         const compile = require('../compiler/compile');
 
@@ -522,6 +525,9 @@ class Thread {
         }
 
         this.isCompiled = true;
+        if (updateAfterCompile) {
+            this.target.updateData()
+        }
     }
 }
 

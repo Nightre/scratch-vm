@@ -360,6 +360,7 @@ class Target extends EventEmitter {
                 }
 
             }
+            this.updateData()
         }
     }
 
@@ -381,6 +382,7 @@ class Target extends EventEmitter {
                 this.runtime.monitorBlocks.deleteBlock(id);
                 this.runtime.requestRemoveMonitor(id);
             }
+            this.updateData()
         }
     }
 
@@ -441,13 +443,14 @@ class Target extends EventEmitter {
      * in this blocks container will be updated to refer to the corresponding new IDs.
      * @return {object} The duplicated dictionary of variables
      */
-    duplicateVariables(optBlocks) {
+    duplicateVariables(target) {
+        const optBlocks = target.blocks
         let allVarRefs;
         if (optBlocks) {
             allVarRefs = optBlocks.getAllVariableAndListReferences();
         }
         return Object.keys(this.variables).reduce((accum, varId) => {
-            const newVariable = this.duplicateVariable(varId, !optBlocks);
+            const newVariable = this.duplicateVariable(varId, !optBlocks, target);
             accum[newVariable.id] = newVariable;
             if (optBlocks && allVarRefs) {
                 const currVarRefs = allVarRefs[varId];

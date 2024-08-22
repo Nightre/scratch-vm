@@ -180,8 +180,7 @@ class RenderedTarget extends Target {
         this.referencedComponents = []
         this.updateData()
     }
-    updateData(){
-        console.log("updateData", this.blocks._cache.procedureDefinitions)
+    updateData() {
         const returnVar = {}
         for (const variableId in this.variables) {
             const variablesContent = this.variables[variableId]
@@ -193,11 +192,16 @@ class RenderedTarget extends Target {
         //const procedureParamNames = this.blocks._cache.procedureParamNames
 
         for (const functionName in procedureDefinitions) {
-            returnFunc[functionName.split("%")[0].trim()] = (...args) => {
-                return this.runtime._pushThread(procedureDefinitions[functionName], this, {
+            const blockId = procedureDefinitions[functionName]
+            const blockData = this.blocks.getBlock(blockId)
+
+            const isWarp = JSON.parse(this.blocks._getCustomBlockInternal(blockData).mutation.warp)
+            returnFunc[functionName.split("%")[0].trim()] = (parentWarp, ...args) => {
+                return this.runtime._pushThread(blockId, this, {
                     functionData: {
                         code: functionName,
-                        arguments: args
+                        arguments: args,
+                        isWarp: isWarp || parentWarp
                     }
                 })
             }
@@ -318,21 +322,21 @@ class RenderedTarget extends Target {
         window.vm.emitWorkspaceUpdate()
         this.runtime.requestTargetsUpdate(this);
     }
-
     updateInheritanceBlock() {
+        this.components.forEach(c => c.updateInheritanceBlock())
         const blocks = this.blocks
+
         blocks.deleteAllinheritedBlocks()
         this.deleteInheritedVariables()
         this.inheritedVariables = []
         for (const componentId in this.components) {
             const component = this.components[componentId]
-            const cloneKey = `_${componentId}_`
 
             for (const variableName in component.variables) {
                 const variable = component.variables[variableName]
-                this.inheritedVariables.push(variableName + cloneKey)
+                this.inheritedVariables.push(variableName)
                 this.createVariable(
-                    variableName + cloneKey,
+                    variableName,
                     variable.name,
                     variable.type,
                     variable.isCloud
@@ -340,7 +344,7 @@ class RenderedTarget extends Target {
             }
 
             for (const parentBlock of Object.values(component.blocks._blocks)) {
-                const newBlock = blocks.inheritBlock(parentBlock, cloneKey, this.showComponents[componentId])
+                const newBlock = blocks.inheritBlock(parentBlock, this.showComponents[componentId])
                 blocks.createBlock(newBlock, true)
             }
         }
@@ -1153,8 +1157,7 @@ class RenderedTarget extends Target {
         newClone.currentCostume = this.currentCostume;
         newClone.rotationStyle = this.rotationStyle;
         newClone.effects = Clone.simple(this.effects);
-        newClone.variables = this.duplicateVariables();
-        newClone.variables.forEach(variables => variables.target = newClone)
+        newClone.variables = this.duplicateVariables(newClone);
         newClone._edgeActivatedHatValues = Clone.simple(this._edgeActivatedHatValues);
         newClone.initDrawable(StageLayering.SPRITE_LAYER);
         newClone.updateAllDrawableProperties();
@@ -1179,8 +1182,7 @@ class RenderedTarget extends Target {
             newTarget.currentCostume = this.currentCostume;
             newTarget.rotationStyle = this.rotationStyle;
             newTarget.effects = JSON.parse(JSON.stringify(this.effects));
-            newTarget.variables = this.duplicateVariables(newTarget.blocks);
-            newTarget.variables.forEach(variables => variables.target = newTarget)
+            newTarget.variables = this.duplicateVariables(newTarget);
             newTarget.updateAllDrawableProperties();
             return newTarget;
         });

@@ -694,6 +694,7 @@ class VirtualMachine extends EventEmitter {
         const deserializePromise = function () {
             const projectVersion = projectJSON.projectVersion;
             if (projectVersion === 2) {
+                alert("导入 sb2 可能发生错误")
                 const sb2 = require('./serialization/sb2');
                 return sb2.deserialize(projectJSON, runtime, false, zip);
             }
@@ -1662,8 +1663,8 @@ class VirtualMachine extends EventEmitter {
     emitWorkspaceUpdate() {
         // Create a list of broadcast message Ids according to the stage variables
         this.editingTarget.updateInheritanceBlock()
+        // Create a list of broadcast message Ids according to the stage variables
         const stageVariables = this.runtime.getTargetForStage().variables;
-
         let messageIds = [];
         for (const varId in stageVariables) {
             if (stageVariables[varId].type === Variable.BROADCAST_MESSAGE_TYPE) {
@@ -1701,8 +1702,6 @@ class VirtualMachine extends EventEmitter {
         const workspaceComments = Object.keys(this.editingTarget.comments)
             .map(k => this.editingTarget.comments[k])
             .filter(c => c.blockId === null);
-        // const publicDefinition = this.editingTarget.getComponentsPublicDefinition()
-        // const publicAttribute = this.editingTarget.getComponentsPublicAttribute()
 
         const xmlString = `<xml xmlns="http://www.w3.org/1999/xhtml">
                             <variables>
@@ -1713,7 +1712,7 @@ class VirtualMachine extends EventEmitter {
                             ${this.editingTarget.blocks.toXML(this.editingTarget.comments)}
                         </xml>`;
 
-        this.emit('workspaceUpdate', { xml: xmlString });
+        this.emit('workspaceUpdate', {xml: xmlString});
     }
 
     /**

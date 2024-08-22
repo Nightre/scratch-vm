@@ -797,13 +797,16 @@ class JSGenerator {
     descendStackedBlock(node) {
         switch (node.kind) {
             case 'control.call':
-                this.source += 'yield* waitThreads(['
+                this.source += 'yield* '
+                this.source += 'waitThreads(['
                 this.source += this.descendInput(node.function).asSafe()
                 this.source += `(`;
                 const args = [];
                 for (const input of node.extensible) {
                     args.push(this.descendInput(input).asSafe());
                 }
+                this.source += JSON.stringify(this.isWarp)
+                this.source += ','
                 this.source += args.join(',');
                 this.source += ')';
                 this.source += ']);\n'

@@ -151,7 +151,6 @@ class Sprite {
             newSprite.blocks.createBlock(block);
         });
 
-
         const allNames = this.runtime.targets.map(t => t.sprite.name);
         newSprite.name = StringUtil.unusedName(this.name, allNames);
 
@@ -169,7 +168,6 @@ class Sprite {
             assetPromises.push(loadSoundFromAsset(newSound, soundAsset, this.runtime, newSprite.soundBank));
             return newSound;
         });
-
         return Promise.all(assetPromises).then(() => newSprite);
     }
 

@@ -729,6 +729,7 @@ class ScriptTreeGenerator {
     descendStackedBlock(block) {
         switch (block.opcode) {
             case 'control_call':
+                this.script.yields = true;
                 return {
                     kind: 'control.call',
                     extensible: this.descendExtensible(block),
