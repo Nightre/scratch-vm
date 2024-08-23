@@ -76,8 +76,133 @@ class Target extends EventEmitter {
          * @type {Object.<string, object>}
          */
         this.extensionStorage = {};
-    }
 
+        /** @type {Array} */
+        this.showComponents = []
+        this.components = []
+        /** @type {Array} */
+        this.returnObject = {}
+
+        this.inheritedVariables = []
+        this.referencedComponents = []
+    }
+    updateData() {
+
+    }
+    getData() {
+        return this.returnObject
+    }
+    // getAtribute(name) {
+    //     return this.exportAttribute[name]
+    // }
+    // removeAtribute(name) {
+    //     delete this.exportAttribute[name]
+    //     window.vm.emitTargetsUpdate(true)
+    // }
+    // setAtribute(name, data) {
+    //     this.exportAttribute[name] = data
+    //     this.runtime.requestTargetsUpdate(this);
+    //     window.vm.emitTargetsUpdate(true)
+    // }
+
+    // setOverride(index, name, data) {
+    //     this.componentsOverride[index][name] = data
+    //     this.runtime.requestTargetsUpdate(this);
+    //     window.vm.emitTargetsUpdate(true)
+    // }
+    // removeOverride(index, name) {
+    //     delete this.componentsOverride[index][name]
+    //     this.runtime.requestTargetsUpdate(this);
+    //     window.vm.emitTargetsUpdate(true)
+    // }
+    getPreviousClone() {
+        const clones = this.sprite.clones
+        return clones[clones.length - 1]
+    }
+    addComponet(componet, emit = true) {
+        if (emit && this.isComponetCyclic(componet)) {
+            return false
+        }
+        this.components.push(componet)
+        componet.referencedComponents.push(this)
+        this.showComponents.push(true)
+        //window.vm.emitTargetsUpdate(true)
+        if (emit) {
+            window.vm.emitWorkspaceUpdate()
+            this.runtime.requestTargetsUpdate(this);
+        }
+        return true
+    }
+    isComponetCyclic(component) {
+        // 检查当前组件是否是父组件的子组件
+        if (component === this) {
+            return true;
+        }
+
+        // 递归检查所有子组件
+        for (let child of component.components) {
+            if (this.isComponetCyclic(child, this)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+    referencedComponentDisposed(components) {
+        this.removeComponet(this.components.indexOf(components))
+    }
+    removeComponet(targetComponentIndex, emit = true) {
+        if (targetComponentIndex >= 0 && targetComponentIndex < this.components.length) {
+            this.components[targetComponentIndex].referencedComponents.filter(cop => cop != this)
+            this.components.splice(targetComponentIndex, 1);
+            this.showComponents.splice(targetComponentIndex, 1);
+
+            this.runtime.requestTargetsUpdate(this);
+        } else {
+            console.warn("Invalid component index:", targetComponentIndex);
+        }
+        if (emit) {
+            window.vm.emitWorkspaceUpdate()
+            this.runtime.requestTargetsUpdate(this);
+        }
+    }
+    deleteInheritedVariables() {
+        for (const key of this.inheritedVariables) {
+            this.deleteVariable(key)
+        }
+    }
+    toggleShowComponents(index) {
+        this.showComponents[index] = !this.showComponents[index]
+        window.vm.emitWorkspaceUpdate()
+        this.runtime.requestTargetsUpdate(this);
+    }
+    updateInheritanceBlock() {
+        this.components.forEach(c => c.updateInheritanceBlock())
+        const blocks = this.blocks
+
+        blocks.deleteAllinheritedBlocks()
+        this.deleteInheritedVariables()
+        this.inheritedVariables = []
+        for (const componentId in this.components) {
+            const component = this.components[componentId]
+
+            for (const variableName in component.variables) {
+                const variable = component.variables[variableName]
+                this.inheritedVariables.push(variableName)
+                this.createVariable(
+                    variableName,
+                    variable.name,
+                    variable.type,
+                    variable.isCloud
+                )
+            }
+
+            for (const parentBlock of Object.values(component.blocks._blocks)) {
+                const newBlock = blocks.inheritBlock(parentBlock, this.showComponents[componentId])
+                blocks.createBlock(newBlock, true)
+            }
+        }
+    }
     /**
      * Called when the project receives a "green flag."
      * @abstract

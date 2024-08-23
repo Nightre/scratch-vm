@@ -177,177 +177,8 @@ class RenderedTarget extends Target {
         this.returnObject = {}
 
         this.inheritedVariables = []
-        this.referencedComponents = []
+
         this.updateData()
-    }
-    updateData() {
-        const returnVar = {}
-        for (const variableId in this.variables) {
-            const variablesContent = this.variables[variableId]
-            returnVar[variablesContent.name] = variablesContent.value
-        }
-        const costumes = this.getCostumes();
-        const returnFunc = {}
-        const procedureDefinitions = this.blocks._cache.procedureDefinitions
-        //const procedureParamNames = this.blocks._cache.procedureParamNames
-
-        for (const functionName in procedureDefinitions) {
-            const blockId = procedureDefinitions[functionName]
-            const blockData = this.blocks.getBlock(blockId)
-
-            const isWarp = JSON.parse(this.blocks._getCustomBlockInternal(blockData).mutation.warp)
-            returnFunc[functionName.split("%")[0].trim()] = (parentWarp, ...args) => {
-                return this.runtime._pushThread(blockId, this, {
-                    functionData: {
-                        code: functionName,
-                        arguments: args,
-                        isWarp: isWarp || parentWarp
-                    }
-                })
-            }
-        }
-        Object.keys(this.returnObject).forEach(key => {
-            delete this.returnObject[key];
-        });
-        Object.assign(this.returnObject, {
-            id: this.id,
-            name: this.getName(),
-            isStage: this.isStage,
-            x: this.x,
-            y: this.y,
-            size: this.size,
-            direction: this.direction,
-            draggable: this.draggable,
-            currentCostume: this.currentCostume,
-            costume: costumes[this.currentCostume],
-            //costumeCount: costumes.length,
-            visible: this.visible,
-            rotationStyle: this.rotationStyle,
-            //comments: this.comments,
-            //blocks: this.blocks._blocks,
-            //variables: this.variables,
-            costumes: costumes,
-            sounds: this.getSounds(),
-            volume: this.volume,
-            ...returnVar,
-            ...returnFunc
-        })
-    }
-    getData() {
-        return this.returnObject
-    }
-    // getAtribute(name) {
-    //     return this.exportAttribute[name]
-    // }
-    // removeAtribute(name) {
-    //     delete this.exportAttribute[name]
-    //     window.vm.emitTargetsUpdate(true)
-    // }
-    // setAtribute(name, data) {
-    //     this.exportAttribute[name] = data
-    //     this.runtime.requestTargetsUpdate(this);
-    //     window.vm.emitTargetsUpdate(true)
-    // }
-
-    // setOverride(index, name, data) {
-    //     this.componentsOverride[index][name] = data
-    //     this.runtime.requestTargetsUpdate(this);
-    //     window.vm.emitTargetsUpdate(true)
-    // }
-    // removeOverride(index, name) {
-    //     delete this.componentsOverride[index][name]
-    //     this.runtime.requestTargetsUpdate(this);
-    //     window.vm.emitTargetsUpdate(true)
-    // }
-    getPreviousClone() {
-        const clones = this.sprite.clones
-        return clones[clones.length - 1]
-    }
-    addComponet(componet, emit = true) {
-        if (emit && this.isComponetCyclic(componet)) {
-            return false
-        }
-        this.components.push(componet)
-        componet.referencedComponents.push(this)
-        this.showComponents.push(true)
-        //window.vm.emitTargetsUpdate(true)
-        if (emit) {
-            window.vm.emitWorkspaceUpdate()
-            this.runtime.requestTargetsUpdate(this);
-        }
-        return true
-    }
-    isComponetCyclic(component) {
-        // 检查当前组件是否是父组件的子组件
-        if (component === this) {
-            return true;
-        }
-
-        // 递归检查所有子组件
-        for (let child of component.components) {
-            if (this.isComponetCyclic(child, this)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-    referencedComponentDisposed(components) {
-        this.removeComponet(this.components.indexOf(components))
-    }
-    removeComponet(targetComponentIndex, emit = true) {
-        if (targetComponentIndex >= 0 && targetComponentIndex < this.components.length) {
-            this.components[targetComponentIndex].referencedComponents.filter(cop => cop != this)
-            this.components.splice(targetComponentIndex, 1);
-            this.showComponents.splice(targetComponentIndex, 1);
-
-            this.runtime.requestTargetsUpdate(this);
-        } else {
-            console.warn("Invalid component index:", targetComponentIndex);
-        }
-        if (emit) {
-            window.vm.emitWorkspaceUpdate()
-            this.runtime.requestTargetsUpdate(this);
-        }
-    }
-    // TODO:克隆体继承components并且updateInheritanceBlock
-
-    deleteInheritedVariables() {
-        for (const key of this.inheritedVariables) {
-            this.deleteVariable(key)
-        }
-    }
-    toggleShowComponents(index) {
-        this.showComponents[index] = !this.showComponents[index]
-        window.vm.emitWorkspaceUpdate()
-        this.runtime.requestTargetsUpdate(this);
-    }
-    updateInheritanceBlock() {
-        this.components.forEach(c => c.updateInheritanceBlock())
-        const blocks = this.blocks
-
-        blocks.deleteAllinheritedBlocks()
-        this.deleteInheritedVariables()
-        this.inheritedVariables = []
-        for (const componentId in this.components) {
-            const component = this.components[componentId]
-
-            for (const variableName in component.variables) {
-                const variable = component.variables[variableName]
-                this.inheritedVariables.push(variableName)
-                this.createVariable(
-                    variableName,
-                    variable.name,
-                    variable.type,
-                    variable.isCloud
-                )
-            }
-
-            for (const parentBlock of Object.values(component.blocks._blocks)) {
-                const newBlock = blocks.inheritBlock(parentBlock, this.showComponents[componentId])
-                blocks.createBlock(newBlock, true)
-            }
-        }
     }
 
     /**
@@ -1248,7 +1079,59 @@ class RenderedTarget extends Target {
         this.dragging = false;
     }
 
+    updateData() {
+        const returnVar = {}
+        for (const variableId in this.variables) {
+            const variablesContent = this.variables[variableId]
+            returnVar[variablesContent.name] = variablesContent.value
+        }
+        const costumes = this.getCostumes();
+        const returnFunc = {}
+        const procedureDefinitions = this.blocks._cache.procedureDefinitions
+        //const procedureParamNames = this.blocks._cache.procedureParamNames
 
+        for (const functionName in procedureDefinitions) {
+            const blockId = procedureDefinitions[functionName]
+            const blockData = this.blocks.getBlock(blockId)
+
+            const isWarp = JSON.parse(this.blocks._getCustomBlockInternal(blockData).mutation.warp)
+            returnFunc[functionName.split("%")[0].trim()] = (parentWarp, ...args) => {
+                return this.runtime._pushThread(blockId, this, {
+                    functionData: {
+                        code: functionName,
+                        arguments: args,
+                        isWarp: isWarp || parentWarp
+                    }
+                })
+            }
+        }
+        Object.keys(this.returnObject).forEach(key => {
+            delete this.returnObject[key];
+        });
+        Object.assign(this.returnObject, {
+            id: this.id,
+            name: this.getName(),
+            isStage: this.isStage,
+            x: this.x,
+            y: this.y,
+            size: this.size,
+            direction: this.direction,
+            draggable: this.draggable,
+            currentCostume: this.currentCostume,
+            costume: costumes[this.currentCostume],
+            //costumeCount: costumes.length,
+            visible: this.visible,
+            rotationStyle: this.rotationStyle,
+            //comments: this.comments,
+            //blocks: this.blocks._blocks,
+            //variables: this.variables,
+            costumes: costumes,
+            sounds: this.getSounds(),
+            volume: this.volume,
+            ...returnVar,
+            ...returnFunc
+        })
+    }
     /**
      * Serialize sprite info, used when emitting events about the sprite
      * @returns {object} Sprite data as a simple object
