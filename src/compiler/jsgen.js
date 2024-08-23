@@ -437,7 +437,7 @@ class JSGenerator {
             case 'structures.slice_list':
                 return new TypedInput(`${this.descendInput(node.object).asUnknown()}.slice(${this.descendInput(node.index0).asNumber()}, ${this.descendInput(node.index1).asNumber()})`,TYPE_UNKNOWN) 
             case 'structures.get_all_key':
-                return new TypedInput(`Object.key(${this.descendInput(node.object).asUnknown()})`,TYPE_UNKNOWN) 
+                return new TypedInput(`Object.keys(${this.descendInput(node.object).asUnknown()})`,TYPE_UNKNOWN) 
             case 'structures.get_all_value':
                 return new TypedInput(`Object.values(${this.descendInput(node.object).asUnknown()})`,TYPE_UNKNOWN) 
             case 'control.get_previous_clone':

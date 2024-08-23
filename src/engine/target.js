@@ -128,7 +128,7 @@ class Target extends EventEmitter {
         this.showComponents.push(true)
         //window.vm.emitTargetsUpdate(true)
         if (emit) {
-            window.vm.emitWorkspaceUpdate()
+            //window.vm.emitWorkspaceUpdate()
             this.runtime.requestTargetsUpdate(this);
         }
         return true
@@ -162,7 +162,7 @@ class Target extends EventEmitter {
             console.warn("Invalid component index:", targetComponentIndex);
         }
         if (emit) {
-            window.vm.emitWorkspaceUpdate()
+            //window.vm.emitWorkspaceUpdate()
             this.runtime.requestTargetsUpdate(this);
         }
     }
@@ -173,7 +173,7 @@ class Target extends EventEmitter {
     }
     toggleShowComponents(index) {
         this.showComponents[index] = !this.showComponents[index]
-        window.vm.emitWorkspaceUpdate()
+        //window.vm.emitWorkspaceUpdate()
         this.runtime.requestTargetsUpdate(this);
     }
     updateInheritanceBlock() {
