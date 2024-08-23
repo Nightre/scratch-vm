@@ -430,6 +430,16 @@ class JSGenerator {
      */
     descendInput(node) {
         switch (node.kind) {
+            case 'structures.get_list_length':
+                return new TypedInput(`${this.descendInput(node.object).asUnknown()}.length`,TYPE_NUMBER)
+            case 'structures.list_includes':
+                return new TypedInput(`${this.descendInput(node.object).asUnknown()}.includes(${this.descendInput(node.value).asUnknown()})`,TYPE_UNKNOWN) 
+            case 'structures.slice_list':
+                return new TypedInput(`${this.descendInput(node.object).asUnknown()}.slice(${this.descendInput(node.index0).asNumber()}, ${this.descendInput(node.index1).asNumber()})`,TYPE_UNKNOWN) 
+            case 'structures.get_all_key':
+                return new TypedInput(`Object.key(${this.descendInput(node.object).asUnknown()})`,TYPE_UNKNOWN) 
+            case 'structures.get_all_value':
+                return new TypedInput(`Object.values(${this.descendInput(node.object).asUnknown()})`,TYPE_UNKNOWN) 
             case 'control.get_previous_clone':
                 return new TypedInput("target.getPreviousClone().getData()", TYPE_UNKNOWN);
             case 'structures.self':
@@ -790,24 +800,54 @@ class JSGenerator {
                 throw new Error(`JS: Unknown input: ${node.kind}`);
         }
     }
-
+    descendExtensible(node){
+        const args = [];
+        for (const input of node.extensible) {
+            args.push(this.descendInput(input).asSafe());
+        }
+        return args
+    }
     /**
      * @param {*} node Stacked node to compile.
      */
     descendStackedBlock(node) {
         switch (node.kind) {
+            case 'structures.set_attribute':
+                this.source += this.descendInput(node.object).asSafe()
+                this.source += this.descendExtensible(node).map(item => `[${item}]`).join('');
+                this.source += '='
+                this.source += this.descendInput(node.value).asSafe()
+                this.source += ';\n'
+                break;
+            case 'structures.delete_list':
+                this.source += this.descendInput(node.object).asSafe()
+                this.source += '.splice('
+                this.source += this.descendInput(node.index).asNumber()
+                this.source += ',1);\n'
+                break;
+            case 'structures.insert_list':
+                this.source += this.descendInput(node.object).asSafe()
+                this.source += '.splice('
+                this.source += this.descendInput(node.index).asNumber()
+                this.source += ',0,'
+                this.source += this.descendInput(node.value).asNumber()
+                this.source += ');\n'
+                break;
+            case 'structures.delete_map':
+                this.source += 'delete '
+                this.source += this.descendInput(node.object).asSafe()
+                this.source += '['
+                this.source += this.descendInput(node.key).asNumber()
+                this.source += '];\n'
+                break;
             case 'control.call':
                 this.source += 'yield* '
                 this.source += 'waitThreads(['
                 this.source += this.descendInput(node.function).asSafe()
                 this.source += `(`;
-                const args = [];
-                for (const input of node.extensible) {
-                    args.push(this.descendInput(input).asSafe());
-                }
                 this.source += JSON.stringify(this.isWarp)
                 this.source += ','
-                this.source += args.join(',');
+                this.source += this.descendExtensible(node).join(',')
                 this.source += ')';
                 this.source += ']);\n'
                 break;

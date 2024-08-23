@@ -89,7 +89,7 @@ class ScriptTreeGenerator {
 
         this.script.procedureVariant = procedureVariant;
         this.script.procedureCode = procedureCode;
-        
+
         if (!independentThread) {
             this.script.isProcedure = true;
             this.script.yields = false;
@@ -173,6 +173,34 @@ class ScriptTreeGenerator {
      */
     descendInput(block) {
         switch (block.opcode) {
+            case 'structures_get_list_length':
+                return {
+                    kind: 'structures.get_list_length',
+                    object: this.descendInputOfBlock(block, "OBJECT"),
+                }
+            case 'structures_list_includes':
+                return {
+                    kind: 'structures.list_includes',
+                    object: this.descendInputOfBlock(block, "OBJECT"),
+                    value: this.descendInputOfBlock(block, "VALUE"),
+                }
+            case 'structures_slice_list':
+                return {
+                    kind: 'structures.slice_list',
+                    object: this.descendInputOfBlock(block, "OBJECT"),
+                    index0: this.descendInputOfBlock(block, "INDEX0"),
+                    index1: this.descendInputOfBlock(block, "INDEX1"),
+                }
+            case 'structures_get_all_key':
+                return {
+                    kind: 'structures.get_all_key',
+                    object: this.descendInputOfBlock(block, "OBJECT"),
+                }
+            case 'structures_get_all_value':
+                return {
+                    kind: 'structures.get_all_value',
+                    object: this.descendInputOfBlock(block, "OBJECT"),
+                }
             case 'control_get_previous_clone':
                 return {
                     kind: "control.get_previous_clone"
@@ -728,6 +756,33 @@ class ScriptTreeGenerator {
      */
     descendStackedBlock(block) {
         switch (block.opcode) {
+            case 'structures_set_attribute':
+                return {
+                    kind: 'structures.set_attribute',
+                    extensible: this.descendExtensible(block),
+                    object: this.descendInputOfBlock(block, "OBJECT"),
+                    value: this.descendInputOfBlock(block, "VALUE"),
+                }
+            case 'structures_delete_list':
+                return {
+                    kind: 'structures.delete_list',
+                    object: this.descendInputOfBlock(block, "OBJECT"),
+                    index: this.descendInputOfBlock(block, "INDEX"),
+                }
+            case 'structures_insert_list':
+                return {
+                    kind: 'structures.insert_list',
+                    object: this.descendInputOfBlock(block, "OBJECT"),
+                    index: this.descendInputOfBlock(block, "INDEX"),
+                    value: this.descendInputOfBlock(block, "VALUE"),
+
+                }
+            case 'structures_delete_map':
+                return {
+                    kind: 'structures.delete_map',
+                    object: this.descendInputOfBlock(block, "OBJECT"),
+                    key: this.descendInputOfBlock(block, "KEY"),
+                }
             case 'control_call':
                 this.script.yields = true;
                 return {
