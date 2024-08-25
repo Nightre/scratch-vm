@@ -572,7 +572,7 @@ runtimeFunctions.yieldThenCall = `const yieldThenCall = function* (callback, ...
     yield;
     return callback(...args);
 }`;
-
+runtimeFunctions.cache = `let cache = null;`;
 /**
  * @param {function} callback The generator function to run
  * @param {...unknown} args The arguments to pass to the generator function
@@ -582,13 +582,31 @@ runtimeFunctions.yieldThenCallGenerator = `const yieldThenCallGenerator = functi
     yield;
     return yield* callback(...args);
 }`;
-
+runtimeFunctions.callDynamicFunction = `
+const callDynamicFunction = function* (target, functinon, isWarp, args) {
+    if (typeof functinon === "function") {
+        let t = functinon.call(target, isWarp, args);
+        if(isWarp){
+            //globalState.execute(t);
+            target.runtime.stepSingleThread(t)
+            target.runtime._stopThread(t);
+            target.runtime.threads.filter(targetThread=>targetThread!=t)
+            target.runtime.threadMap.delete(t.getId());
+        }else{
+            yield* waitThreads([t]);
+        }
+        
+        return t.returnValue;
+    }
+};
+`;
 /**
  * Step a compiled thread.
  * @param {Thread} thread The thread to step.
  */
 const execute = (thread) => {
     globalState.thread = thread;
+    globalState.execute = execute;
     thread.generator.next();
 };
 
@@ -603,7 +621,7 @@ const restoreGlobalState = () => {
 const insertRuntime = source => {
     let result = baseRuntime;
     for (const functionName of Object.keys(runtimeFunctions)) {
-        if (source.includes(functionName)) {
+        if (source.includes(functionName) || functionName == "waitThreads") {
             result += `${runtimeFunctions[functionName]};`;
         }
     }

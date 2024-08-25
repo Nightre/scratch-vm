@@ -8,6 +8,7 @@
  */
 class IntermediateScript {
     constructor (functionData) {
+        this.threadProcedure = Boolean(functionData)
         /**
          * The ID of the top block of this script.
          * @type {string}

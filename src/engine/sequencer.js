@@ -63,12 +63,14 @@ class Sequencer {
     static get WARP_TIME () {
         return 500;
     }
-
+    stepSingleThread(thread){
+        this.stepThread(thread)
+    }
     /**
      * Step through all threads in `this.runtime.threads`, running them in order.
      * @return {Array.<!Thread>} List of inactive threads after stepping.
      */
-    stepThreads () {
+    stepThreads (threads = this.runtime.threads) {
         // Work time is 75% of the thread stepping interval.
         const WORK_TIME = 0.75 * this.runtime.currentStepTime;
         // For compatibility with Scatch 2, update the millisecond clock
@@ -86,7 +88,7 @@ class Sequencer {
         // 1. We must have threads in the list, and some must be active.
         // 2. Time elapsed must be less than WORK_TIME.
         // 3. Either turbo mode, or no redraw has been requested by a primitive.
-        while (this.runtime.threads.length > 0 &&
+        while (threads.length > 0 &&
                numActiveThreads > 0 &&
                this.timer.timeElapsed() < WORK_TIME &&
                (this.runtime.turboMode || !this.runtime.redrawRequested)) {
@@ -100,7 +102,7 @@ class Sequencer {
             numActiveThreads = 0;
             let stoppedThread = false;
             // Attempt to run each thread one time.
-            const threads = this.runtime.threads;
+            //const threads = this.runtime.threads;
             for (let i = 0; i < threads.length; i++) {
                 const activeThread = this.activeThread = threads[i];
                 // Check if the thread is done so it is not executed.

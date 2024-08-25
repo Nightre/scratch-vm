@@ -365,6 +365,7 @@ class JSGenerator {
 
         this.isWarp = script.isWarp;
         this.isProcedure = script.isProcedure;
+        this.threadProcedure = script.threadProcedure;
         this.warpTimer = script.warpTimer;
 
         /**
@@ -430,12 +431,20 @@ class JSGenerator {
      */
     descendInput(node) {
         switch (node.kind) {
+            case 'control.call_return':
+                // TODO:添加
+                const callf =`${this.descendInput(node.function).asUnknown()}(${this.isWarp},${this.descendExtensible(node).join(',')})`
+                return new TypedInput(`(yield* callDynamicFunction${callf})`, TYPE_UNKNOWN)
+            case 'hat_parameters':
+                return new TypedInput(`thread.hatParameters["${node.value}"]`, TYPE_UNKNOWN)
+            case 'sensing.touching_targets':
+                return new TypedInput(`target.getAllTouchingTarget()`,TYPE_NUMBER)
             case 'structures.get_list_length':
                 return new TypedInput(`${this.descendInput(node.object).asUnknown()}.length`,TYPE_NUMBER)
             case 'structures.list_includes':
-                return new TypedInput(`${this.descendInput(node.object).asUnknown()}.includes(${this.descendInput(node.value).asUnknown()})`,TYPE_UNKNOWN) 
+                return new TypedInput(`${this.descendInput(node.object).asUnknown()}.includes?.(${this.descendInput(node.value).asUnknown()})`,TYPE_UNKNOWN) 
             case 'structures.slice_list':
-                return new TypedInput(`${this.descendInput(node.object).asUnknown()}.slice(${this.descendInput(node.index0).asNumber()}, ${this.descendInput(node.index1).asNumber()})`,TYPE_UNKNOWN) 
+                return new TypedInput(`${this.descendInput(node.object).asUnknown()}.slice?.(${this.descendInput(node.index0).asNumber()}, ${this.descendInput(node.index1).asNumber()})`,TYPE_UNKNOWN) 
             case 'structures.get_all_key':
                 return new TypedInput(`Object.keys(${this.descendInput(node.object).asUnknown()})`,TYPE_UNKNOWN) 
             case 'structures.get_all_value':
@@ -476,8 +485,8 @@ class JSGenerator {
                 return new TypedInput(mapCode, TYPE_UNKNOWN);
             case 'structures.get_attribute':
                 let getCode = this.descendInput(node.object).asUnknown()
-                node.extensible.forEach((data, index) => {
-                    getCode += `[${this.descendInput(data).asUnknown()}]`
+                node.extensible.forEach((data) => {
+                    getCode += `?.[${this.descendInput(data).asUnknown()}]`
                 })
                 return new TypedInput(getCode, TYPE_UNKNOWN);
             case 'addons.call':
@@ -807,27 +816,42 @@ class JSGenerator {
         }
         return args
     }
+    setCache(cache){
+        this.source += "cache = "
+        this.source += cache
+        this.source += ';'
+    }
     /**
      * @param {*} node Stacked node to compile.
      */
     descendStackedBlock(node) {
         switch (node.kind) {
+                
             case 'structures.set_attribute':
-                this.source += this.descendInput(node.object).asSafe()
+                const cheackCanSet = this.descendExtensible(node)
+                cheackCanSet.pop()
+                this.setCache(this.descendInput(node.object).asSafe())
+                this.source += "if(cache"
+                this.source += cheackCanSet.map(item => `[${item}]`).join('');
+                this.source += "){\n"
+
+                this.source += 'cache'
                 this.source += this.descendExtensible(node).map(item => `[${item}]`).join('');
                 this.source += '='
                 this.source += this.descendInput(node.value).asSafe()
-                this.source += ';\n'
+
+                this.source += ';\n}\n'
                 break;
             case 'structures.delete_list':
                 this.source += this.descendInput(node.object).asSafe()
-                this.source += '.splice('
+                this.source += '.splice?.('
                 this.source += this.descendInput(node.index).asNumber()
                 this.source += ',1);\n'
                 break;
             case 'structures.insert_list':
+                this.setCache(this.descendInput(node.object).asSafe())
                 this.source += this.descendInput(node.object).asSafe()
-                this.source += '.splice('
+                this.source += '.splice?.('
                 this.source += this.descendInput(node.index).asNumber()
                 this.source += ',0,'
                 this.source += this.descendInput(node.value).asNumber()
@@ -841,15 +865,23 @@ class JSGenerator {
                 this.source += '];\n'
                 break;
             case 'control.call':
+                this.setCache(this.descendInput(node.function).asSafe())
+
+                this.source += 'if(typeof '
+                this.source += 'cache'
+                this.source += '== "function"){\n'
+
                 this.source += 'yield* '
                 this.source += 'waitThreads(['
-                this.source += this.descendInput(node.function).asSafe()
-                this.source += `(`;
-                this.source += JSON.stringify(this.isWarp)
+                this.source += 'cache'
+                this.source += `.call(target, `;
+                this.source += this.isWarp
                 this.source += ','
                 this.source += this.descendExtensible(node).join(',')
                 this.source += ')';
-                this.source += ']);\n'
+                this.source += ']);\n'     
+
+                this.source += '}\n'
                 break;
             case 'addons.call':
                 this.source += `${this.descendAddonCall(node)};\n`;
@@ -1340,7 +1372,7 @@ class JSGenerator {
         // After running retire() (sets thread status and cleans up some unused data), we need to return to the event loop.
         // When in a procedure, return will only send us back to the previous procedure, so instead we yield back to the sequencer.
         // Outside of a procedure, return will correctly bring us back to the sequencer.
-        if (this.isProcedure) {
+        if (this.isProcedure && !this.threadProcedure) {
             this.source += 'retire(); yield;\n';
         } else {
             this.source += 'retire(); return;\n';
@@ -1359,10 +1391,15 @@ class JSGenerator {
      * @param {string} valueJS JS code of value to return.
      */
     stopScriptAndReturn(valueJS) {
-        if (this.isProcedure) {
-            this.source += `return ${valueJS};\n`;
-        } else {
-            this.retire();
+        if (this.threadProcedure) {
+            this.source += `thread.returnValue = ${valueJS};\n`;
+            this.retire()
+        }else{
+            if (this.isProcedure) {
+                this.source += `return ${valueJS};\n`;
+            } else {
+                this.retire();
+            }            
         }
     }
 

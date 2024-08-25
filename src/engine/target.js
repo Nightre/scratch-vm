@@ -8,7 +8,7 @@ const { Map } = require('immutable');
 const log = require('../util/log');
 const StringUtil = require('../util/string-util');
 const VariableUtil = require('../util/variable-util');
-
+const newBlockIds = require('../util/new-block-ids');
 /**
  * @fileoverview
  * A Target is an abstract "code-running" object for the Scratch VM.
@@ -77,13 +77,13 @@ class Target extends EventEmitter {
          */
         this.extensionStorage = {};
 
-        /** @type {Array} */
         this.showComponents = []
         this.components = []
-        /** @type {Array} */
-        this.returnObject = {}
 
         this.inheritedVariables = []
+
+        /** @type {Array} */
+        this.returnObject = {}
         this.referencedComponents = []
     }
     updateData() {
@@ -168,7 +168,7 @@ class Target extends EventEmitter {
     }
     deleteInheritedVariables() {
         for (const key of this.inheritedVariables) {
-            this.deleteVariable(key)
+            this.deleteVariable(key, true)
         }
     }
     toggleShowComponents(index) {
@@ -185,7 +185,6 @@ class Target extends EventEmitter {
         this.inheritedVariables = []
         for (const componentId in this.components) {
             const component = this.components[componentId]
-
             for (const variableName in component.variables) {
                 const variable = component.variables[variableName]
                 this.inheritedVariables.push(variableName)
@@ -196,8 +195,9 @@ class Target extends EventEmitter {
                     variable.isCloud
                 )
             }
-
-            for (const parentBlock of Object.values(component.blocks._blocks)) {
+            const copiedBlocks = JSON.parse(JSON.stringify(component.blocks._blocks));
+            newBlockIds(copiedBlocks);
+            for (const parentBlock of Object.values(copiedBlocks)) {
                 const newBlock = blocks.inheritBlock(parentBlock, this.showComponents[componentId])
                 blocks.createBlock(newBlock, true)
             }
@@ -493,13 +493,13 @@ class Target extends EventEmitter {
      * Removes the variable with the given id from the dictionary of variables.
      * @param {string} id Id of variable to delete.
      */
-    deleteVariable(id) {
+    deleteVariable(id, keepMonitor) {
         if (Object.prototype.hasOwnProperty.call(this.variables, id)) {
             // Get info about the variable before deleting it
             const deletedVariableName = this.variables[id].name;
             const deletedVariableWasCloud = this.variables[id].isCloud;
             delete this.variables[id];
-            if (this.runtime) {
+            if (this.runtime && !keepMonitor) {
                 if (deletedVariableWasCloud && this.isStage) {
                     this.runtime.ioDevices.cloud.requestDeleteVariable(deletedVariableName);
                     this.runtime.removeCloudVariable();
@@ -568,9 +568,9 @@ class Target extends EventEmitter {
      * in this blocks container will be updated to refer to the corresponding new IDs.
      * @return {object} The duplicated dictionary of variables
      */
-    duplicateVariables(target) {
-        const optBlocks = target.blocks
+    duplicateVariables (target, useBlock) {
         let allVarRefs;
+        const optBlocks = useBlock && target.blocks
         if (optBlocks) {
             allVarRefs = optBlocks.getAllVariableAndListReferences();
         }

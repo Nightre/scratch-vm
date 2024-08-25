@@ -635,6 +635,7 @@ const serializeTarget = function (target, extensions) {
         obj.rotationStyle = target.rotationStyle;
         obj.componentsName = target.componentsName
         obj.showComponents = target.showComponents
+        obj.inheritedVariables = target.inheritedVariables
     }
 
     // Add found extensions to the extensions object
@@ -1227,6 +1228,9 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
     }
     if (Object.prototype.hasOwnProperty.call(object, 'showComponents')) {
         target.showComponents = object.showComponents;
+    }
+    if (Object.prototype.hasOwnProperty.call(object, 'inheritedVariables')) {
+        target.inheritedVariables = object.inheritedVariables;
     }
     if (Object.prototype.hasOwnProperty.call(object, 'variables')) {
         for (const varId in object.variables) {

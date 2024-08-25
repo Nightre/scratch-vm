@@ -2587,6 +2587,10 @@ class Runtime extends EventEmitter {
         }
     }
 
+    stepSingleThread(thread){
+        this.sequencer.stepSingleThread(thread);
+    }
+
     /**
      * Get the number of threads in the given array that are monitor threads (threads
      * that update monitor values, and don't count as running a script).

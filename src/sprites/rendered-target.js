@@ -173,14 +173,46 @@ class RenderedTarget extends Target {
         /** @type {Array} */
         this.showComponents = []
         this.components = []
-        /** @type {Array} */
-        this.returnObject = {}
 
-        this.inheritedVariables = []
+        /** @type {Array} */
+        this.returnObjectTarget = {}
+        this.returnObject = new Proxy(this.returnObjectTarget, {
+            set: (_, prop, value) => {
+                for (const [id, vari] of Object.entries(this.variables)) {
+                    if (vari.name == prop) {
+                        this.variables[id].value = value
+                        return true
+                    }
+                }
+                return true;
+            },
+
+            // get: (target, prop, receiver) => {
+            //     switch (prop) {
+            //         case 'name':
+            //             return this.getName()
+            //         default:
+            //             return this[prop] ?? Reflect.get(target, prop, receiver)
+            //     }
+            // }
+        })
 
         this.updateData()
     }
+    getAllTouchingTarget() {
 
+        const drawableCandidates = this.runtime.targets.filter(clone => !clone.dragging)
+        const drawableIds = drawableCandidates.map(clone => clone.drawableID)
+        const touch = []
+        for (const index in drawableIds) {
+            const drawable = drawableIds[index]
+            if (this.renderer.isTouchingDrawables(this.drawableID, [drawable])) {
+                touch.push(drawableCandidates[index].getData())
+            }
+        }
+
+        return touch
+    }
     /**
      * Create a drawable with the this.renderer.
      * @param {boolean} layerGroup The layer group this drawable should be added to
@@ -988,7 +1020,7 @@ class RenderedTarget extends Target {
         newClone.currentCostume = this.currentCostume;
         newClone.rotationStyle = this.rotationStyle;
         newClone.effects = Clone.simple(this.effects);
-        newClone.variables = this.duplicateVariables(newClone);
+        newClone.variables = this.duplicateVariables(newClone, false);
         newClone._edgeActivatedHatValues = Clone.simple(this._edgeActivatedHatValues);
         newClone.initDrawable(StageLayering.SPRITE_LAYER);
         newClone.updateAllDrawableProperties();
@@ -1013,7 +1045,7 @@ class RenderedTarget extends Target {
             newTarget.currentCostume = this.currentCostume;
             newTarget.rotationStyle = this.rotationStyle;
             newTarget.effects = JSON.parse(JSON.stringify(this.effects));
-            newTarget.variables = this.duplicateVariables(newTarget);
+            newTarget.variables = this.duplicateVariables(newTarget, true);
             newTarget.updateAllDrawableProperties();
             return newTarget;
         });
@@ -1085,51 +1117,48 @@ class RenderedTarget extends Target {
             const variablesContent = this.variables[variableId]
             returnVar[variablesContent.name] = variablesContent.value
         }
-        const costumes = this.getCostumes();
+
         const returnFunc = {}
         const procedureDefinitions = this.blocks._cache.procedureDefinitions
-        //const procedureParamNames = this.blocks._cache.procedureParamNames
-
+        
         for (const functionName in procedureDefinitions) {
             const blockId = procedureDefinitions[functionName]
             const blockData = this.blocks.getBlock(blockId)
 
-            const isWarp = JSON.parse(this.blocks._getCustomBlockInternal(blockData).mutation.warp)
+            const isWarp = JSON.parse(this.blocks._getCustomBlockInternal(blockData).mutation.warp) || parentWarp
+            //const compileData = this.blocks._cache.compiledProcedures[generateProcedureVariant(functionName, isWarp)]
             returnFunc[functionName.split("%")[0].trim()] = (parentWarp, ...args) => {
                 return this.runtime._pushThread(blockId, this, {
                     functionData: {
                         code: functionName,
                         arguments: args,
-                        isWarp: isWarp || parentWarp
+                        isWarp: isWarp,
+                        //yields: compileData.yields
                     }
                 })
             }
         }
-        Object.keys(this.returnObject).forEach(key => {
-            delete this.returnObject[key];
+        Object.keys(this.returnObjectTarget).forEach(key => {
+            delete this.returnObjectTarget[key];
         });
-        Object.assign(this.returnObject, {
+        Object.assign(this.returnObjectTarget, {
+            ...returnVar,
+            ...returnFunc
+        })
+
+        Object.assign(this.returnObjectTarget, {
             id: this.id,
-            name: this.getName(),
             isStage: this.isStage,
+            name: this.getName(),
             x: this.x,
             y: this.y,
             size: this.size,
             direction: this.direction,
             draggable: this.draggable,
             currentCostume: this.currentCostume,
-            costume: costumes[this.currentCostume],
-            //costumeCount: costumes.length,
             visible: this.visible,
             rotationStyle: this.rotationStyle,
-            //comments: this.comments,
-            //blocks: this.blocks._blocks,
-            //variables: this.variables,
-            costumes: costumes,
-            sounds: this.getSounds(),
             volume: this.volume,
-            ...returnVar,
-            ...returnFunc
         })
     }
     /**
@@ -1165,31 +1194,32 @@ class RenderedTarget extends Target {
             components: this.components.map(target => target.id),
             componentsName: this.components.map(target => target.sprite.name),
             showComponents: this.showComponents,
+            inheritedVariables: this.inheritedVariables,
         };
     }
-    getComponentsPublicDefinition() {
-        this.publicDefintions = []
-        this.publicDefintionsIds = []
-        for (const component of this.components) {
-            for (const definition of component.blocks.getPublicProcedureDefinition(this.blocks)) {
-                this.publicDefintions.push(definition.xml)
-                this.publicDefintionsIds.push(definition.id)
-            }
-        }
-        return this.publicDefintions
-    }
-    getComponentsPublicAttribute() {
-        let PublicAttributes = [];
-        for (const component of this.components) {
-            const localVarMap = Object.assign({}, component.variables);
-            const localVariables = Object.keys(localVarMap)
-                .filter(k => !k.startsWith('#')) // 过滤掉以 # 开头的键
-                .map(k => localVarMap[k]);
+    // getComponentsPublicDefinition() {
+    //     this.publicDefintions = []
+    //     this.publicDefintionsIds = []
+    //     for (const component of this.components) {
+    //         for (const definition of component.blocks.getPublicProcedureDefinition(this.blocks)) {
+    //             this.publicDefintions.push(definition.xml)
+    //             this.publicDefintionsIds.push(definition.id)
+    //         }
+    //     }
+    //     return this.publicDefintions
+    // }
+    // getComponentsPublicAttribute() {
+    //     let PublicAttributes = [];
+    //     for (const component of this.components) {
+    //         const localVarMap = Object.assign({}, component.variables);
+    //         const localVariables = Object.keys(localVarMap)
+    //             .filter(k => !k.startsWith('#')) // 过滤掉以 # 开头的键
+    //             .map(k => localVarMap[k]);
 
-            PublicAttributes.push(...localVariables);
-        }
-        return PublicAttributes;
-    }
+    //         PublicAttributes.push(...localVariables);
+    //     }
+    //     return PublicAttributes;
+    // }
     /**
      * Dispose, destroying any run-time properties.
      */

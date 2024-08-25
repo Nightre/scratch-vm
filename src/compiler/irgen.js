@@ -173,6 +173,22 @@ class ScriptTreeGenerator {
      */
     descendInput(block) {
         switch (block.opcode) {
+            case 'control_call_return':
+                this.script.yields = true;
+                return {
+                    kind: 'control.call_return',
+                    extensible: this.descendExtensible(block),
+                    function: this.descendInputOfBlock(block, "FUNCTION"),
+                };
+            case 'hat_parameters':
+                return {
+                    kind: 'hat_parameters',
+                    value: block.fields.VALUE.value
+                }
+            case 'sensing_touching_targets':
+                return {
+                    kind: 'sensing.touching_targets'
+                }
             case 'structures_get_list_length':
                 return {
                     kind: 'structures.get_list_length',
@@ -1797,5 +1813,6 @@ class IRGenerator {
 
 module.exports = {
     ScriptTreeGenerator,
-    IRGenerator
+    IRGenerator,
+    generateProcedureVariant
 };

@@ -23,7 +23,7 @@ class Variable {
         // 用于存储实际的 value
         this._value = this.initializeValue(type);
         this.value = this._value
-        this.target.returnObject[this.name] = this.value
+        this.target.returnObjectTarget[this.name] = this.value
     }
 
     // 初始化 value 的方法
@@ -54,7 +54,7 @@ class Variable {
         //     this.type = Variable.SCALAR_TYPE
         // }
         //console.log(this.target)
-        this.target.returnObject[this.name] = newValue
+        this.target.returnObjectTarget[this.name] = newValue
         this._value = newValue;
     }
 
