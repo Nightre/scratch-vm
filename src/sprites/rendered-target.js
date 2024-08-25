@@ -1120,20 +1120,19 @@ class RenderedTarget extends Target {
 
         const returnFunc = {}
         const procedureDefinitions = this.blocks._cache.procedureDefinitions
-        
+
         for (const functionName in procedureDefinitions) {
             const blockId = procedureDefinitions[functionName]
             const blockData = this.blocks.getBlock(blockId)
 
-            const isWarp = JSON.parse(this.blocks._getCustomBlockInternal(blockData).mutation.warp) || parentWarp
+            const isWarp = JSON.parse(this.blocks._getCustomBlockInternal(blockData).mutation.warp)
             //const compileData = this.blocks._cache.compiledProcedures[generateProcedureVariant(functionName, isWarp)]
             returnFunc[functionName.split("%")[0].trim()] = (parentWarp, ...args) => {
                 return this.runtime._pushThread(blockId, this, {
                     functionData: {
                         code: functionName,
                         arguments: args,
-                        isWarp: isWarp,
-                        //yields: compileData.yields
+                        isWarp: isWarp || parentWarp,
                     }
                 })
             }

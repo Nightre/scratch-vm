@@ -434,7 +434,7 @@ class JSGenerator {
             case 'control.call_return':
                 // TODO:添加
                 const callf =`${this.descendInput(node.function).asUnknown()}(${this.isWarp},${this.descendExtensible(node).join(',')})`
-                return new TypedInput(`(yield* callDynamicFunction${callf})`, TYPE_UNKNOWN)
+                return new TypedInput(`(yield* callDynamicFunction(${callf}))`, TYPE_UNKNOWN)
             case 'hat_parameters':
                 return new TypedInput(`thread.hatParameters["${node.value}"]`, TYPE_UNKNOWN)
             case 'sensing.touching_targets':
