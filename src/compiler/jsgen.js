@@ -876,10 +876,11 @@ class JSGenerator {
                 this.source += 'cache'
                 this.source += `.call(target, `;
                 this.source += this.isWarp
-                this.source += ','
+                this.source += ', thread, '
                 this.source += this.descendExtensible(node).join(',')
                 this.source += ')';
                 this.source += ']);\n'     
+                //this.source += 'runtime.sequencer.stepThread(thread)\n'
 
                 this.source += '}\n'
                 break;

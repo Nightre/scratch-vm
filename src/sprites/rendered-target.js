@@ -1127,14 +1127,17 @@ class RenderedTarget extends Target {
 
             const isWarp = JSON.parse(this.blocks._getCustomBlockInternal(blockData).mutation.warp)
             //const compileData = this.blocks._cache.compiledProcedures[generateProcedureVariant(functionName, isWarp)]
-            returnFunc[functionName.split("%")[0].trim()] = (parentWarp, ...args) => {
-                return this.runtime._pushThread(blockId, this, {
+            returnFunc[functionName.split("%")[0].trim()] = (parentWarp, thread, ...args) => {
+                this.runtime.needStepTwice.push(thread)
+                const newThread = this.runtime._pushThread(blockId, this, {
                     functionData: {
                         code: functionName,
                         arguments: args,
                         isWarp: isWarp || parentWarp,
                     }
                 })
+                this.runtime.sequencer.stepThread(newThread)
+                return newThread
             }
         }
         Object.keys(this.returnObjectTarget).forEach(key => {

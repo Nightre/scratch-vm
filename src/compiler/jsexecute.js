@@ -586,16 +586,7 @@ runtimeFunctions.callDynamicFunction = `
 const callDynamicFunction = function* (target, functinon, isWarp, args) {
     if (typeof functinon === "function") {
         let t = functinon.call(target, isWarp, args);
-        if(isWarp){
-            //globalState.execute(t);
-            target.runtime.stepSingleThread(t)
-            target.runtime._stopThread(t);
-            target.runtime.threads.filter(targetThread=>targetThread!=t)
-            target.runtime.threadMap.delete(t.getId());
-        }else{
-            yield* waitThreads([t]);
-        }
-        
+        yield* waitThreads([t]);
         return t.returnValue;
     }
 };

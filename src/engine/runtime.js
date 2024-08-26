@@ -534,6 +534,8 @@ class Runtime extends EventEmitter {
          * Total number of finished or errored scratch-storage load() requests since the runtime was created or cleared.
          */
         this.finishedAssetRequests = 0;
+
+        this.needStepTwice = []
     }
 
     /**
@@ -2502,6 +2504,8 @@ class Runtime extends EventEmitter {
      * inactive threads after each iteration.
      */
     _step () {
+        this.needStepTwice = []
+
         if (this.interpolationEnabled) {
             interpolate.setupInitialState(this);
         }
@@ -2535,6 +2539,9 @@ class Runtime extends EventEmitter {
         }
         this.emit(Runtime.BEFORE_EXECUTE);
         const doneThreads = this.sequencer.stepThreads();
+        for (const thread of this.needStepTwice) {
+            this.sequencer.stepThread(thread)
+        }
         if (this.profiler !== null) {
             this.profiler.stop();
         }
