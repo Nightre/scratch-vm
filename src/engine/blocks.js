@@ -9,6 +9,7 @@ const BlocksRuntimeCache = require('./blocks-runtime-cache');
 const log = require('../util/log');
 const Variable = require('./variable');
 const getMonitorIdForBlockWithArgs = require('../util/get-monitor-id');
+const uid = require('../util/uid');
 
 /**
  * @fileoverview
@@ -32,7 +33,7 @@ class Blocks {
          * @type {Object.<string, Object>}
          */
         this._blocks = {};
-        this._inheritedBlocks = []
+        this.inheritedBlocks = []
         /**
          * All top-level scripts in the workspace.
          * A list of block IDs that represent scripts (i.e., first block in script).
@@ -111,7 +112,6 @@ class Blocks {
          * @type {boolean}
          */
         this.forceNoGlow = optNoGlow || false;
-        this.publicDefintionsIds = []
     }
 
     /**
@@ -300,26 +300,72 @@ class Blocks {
         this._cache.procedureDefinitions[name] = null;
         return null;
     }
-
-    getPublicProcedureDefinition(targetBlock) {
-        const definitions = []
-        targetBlock.publicDefintionsIds = []
+    getProcedureCall(proccode) {
         for (const id in this._blocks) {
             if (!Object.prototype.hasOwnProperty.call(this._blocks, id)) continue;
             const block = this._blocks[id];
-
-            if (block.opcode === 'procedures_definition') {
-                // tw: make sure that populateProcedureCache is kept up to date with this method
-                const internal = this._getCustomBlockInternal(block);
-                if (internal && !internal.mutation.proccode.startsWith("#")) {
-                    definitions.push({ id, xml: this.blockToXML(id, undefined, true) })
-                    targetBlock.publicDefintionsIds.push(id)
+            if (block.opcode === 'procedures_call') {
+                if (block.mutation && block.mutation.proccode === proccode) {
+                    return block
                 }
             }
         }
-
-        return definitions;
     }
+    changeProcedureCall(newBlock, procedureCode) {
+        const callBlock = newBlock.call
+        const cloneShadow = (shadowId) => {
+            const shadow = Clone.simple(newBlock[shadowId])
+            const newId = uid()
+            shadow.id = newId
+            this._blocks[newId] = shadow
+            return newId
+        }
+        for (const id in this._blocks) {
+            if (!Object.prototype.hasOwnProperty.call(this._blocks, id)) continue;
+            const block = this._blocks[id];
+            if (block.opcode === 'procedures_call') {
+                if (block.mutation && block.mutation.proccode == procedureCode) {
+
+                    // 首先删除这个call的所有shadow
+                    for (const input in block.inputs) {
+                        if (!callBlock.inputs[input]) {
+                            const inputTarget = block.inputs[input]
+
+                            if (inputTarget.shadow) {
+                                this.deleteBlock(inputTarget.shadow)
+                            }
+                            if (inputTarget.shadow != inputTarget.block) {
+                                this.deleteBlock(inputTarget.block)
+                            }
+                            delete block.inputs[input]
+                        }
+                    }
+
+                    for (const [inputName, input] of Object.entries(callBlock.inputs)) {
+                        if (!block.inputs[inputName]) {
+                            block.inputs[inputName] = {}
+                        }
+
+                        if (input.shadow) {
+                            if (!block.inputs[inputName].name) {
+                                block.inputs[inputName].name = inputName
+                            }
+                            if (!block.inputs[inputName].shadow) {
+                                block.inputs[inputName].shadow = cloneShadow(input.shadow)
+                            }
+                        }
+
+                        if (!block.inputs[inputName].block && block.inputs[inputName].shadow) {
+                            block.inputs[inputName].block = block.inputs[inputName].shadow
+                        }
+                    }
+
+                    block.mutation = callBlock.mutation
+                }
+            }
+        }
+    }
+  
     /**
      * Get names and ids of parameters for the given procedure.
      * @param {?string} name Name of procedure to query.
@@ -403,19 +449,9 @@ class Blocks {
     }
     inheritBlock(block, show) {
         const newBlock = Clone.simple(block)
-        // newBlock.id += cloneKey
-
-        // if (newBlock.parent) newBlock.parent += cloneKey
-        // if (newBlock.next) newBlock.next += cloneKey
-
-        // if (newBlock.inputs) {
-        //     for (const inputName in newBlock.inputs) {
-        //         const inputValue = newBlock.inputs[inputName]
-
-        //         if (inputValue.block) inputValue.block += cloneKey
-        //         if (inputValue.shadow) inputValue.shadow += cloneKey
-        //     }
-        // }
+        // inherited 属性不会长久存储，当emitWorkspaceUpdate的时候inherited就会被消除
+        // inherited 属性的唯一用途是告诉blockly需要禁用该积木
+        // TODO: 将 inherited 改成长久的，只需要让blockly在createBlocks的时候带上inherited属性
         newBlock.inherited = true
         newBlock.hide = !show
         delete newBlock.comment
@@ -424,12 +460,7 @@ class Blocks {
     duplicate() {
         const newBlocks = new Blocks(this.runtime, this.forceNoGlow);
         newBlocks._blocks = Clone.simple(this._blocks);
-        // newBlocks._blocks.forEach(block => {
-        //     if (block.inherited) {
-        //         delete block.inherited
-        //     }
-        //     console.log(block)
-        // })
+
         newBlocks._scripts = Clone.simple(this._scripts);
         return newBlocks;
     }
@@ -458,13 +489,20 @@ class Blocks {
         }
 
         // Block create/update/destroy
+
         switch (e.type) {
             case 'create': {
+
                 const newBlocks = adapter(e);
                 // A create event can create many blocks. Add them all.
                 for (let i = 0; i < newBlocks.length; i++) {
-                    if (!this.publicDefintionsIds.includes(e.blockId)) {
-                        this.createBlock(newBlocks[i]);
+                    this.createBlock(newBlocks[i]);
+                }
+                const block = newBlocks[0]
+                if (this == this.runtime.flyoutBlocks && block.opcode == "procedures_call") {
+                    if (this.runtime.lastChangeProceduresCode) {
+                        this.runtime.getEditingTarget()?.updateProceduresCall(newBlocks, this.runtime.lastChangeProceduresCode)
+                        this.runtime.lastChangeProceduresCode = false
                     }
                 }
                 break;
@@ -693,12 +731,13 @@ class Blocks {
         if (Object.prototype.hasOwnProperty.call(this._blocks, block.id)) {
             return;
         }
-        // Create new block.
-        this._blocks[block.id] = block;
 
         if (inherited) {
-            this._inheritedBlocks.push(block.id)
+            this.inheritedBlocks.push(block.id)
         }
+
+        // Create new block.
+        this._blocks[block.id] = block;
 
         // Push block id to scripts array.
         // Blocks are added as a top-level stack if they are marked as a top-block
@@ -771,6 +810,9 @@ class Blocks {
                 }
                 break;
             case 'mutation':
+                if (block.opcode == "procedures_prototype") {
+                    this.runtime.lastChangeProceduresCode = block.mutation.proccode
+                }
                 block.mutation = mutationAdapter(args.value);
                 break;
             case 'checkbox': {
@@ -982,8 +1024,8 @@ class Blocks {
 
         // Delete any script starting with this block.
         this._deleteScript(blockId);
-        if (this._inheritedBlocks.includes(blockId)) {
-            this._inheritedBlocks.filter(data => data.id != blockId)
+        if (this.inheritedBlocks.includes(blockId)) {
+            this.inheritedBlocks.filter(data => data.id != blockId)
         }
         // Delete block itself.
         delete this._blocks[blockId];
@@ -992,14 +1034,14 @@ class Blocks {
         this.emitProjectChanged();
     }
     deleteAllinheritedBlocks() {
-        this._inheritedBlocks.forEach(blockId => this.deleteBlock(blockId));
-        this._inheritedBlocks = []
+        this.inheritedBlocks.forEach(blockId => this.deleteBlock(blockId));
+        this.inheritedBlocks = []
     }
     /**
      * Delete all blocks and their associated scripts.
      */
     deleteAllBlocks() {
-        this._inheritedBlocks = []
+        this.inheritedBlocks = []
         const blockIds = Object.keys(this._blocks);
         blockIds.forEach(blockId => this.deleteBlock(blockId));
     }

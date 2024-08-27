@@ -100,6 +100,13 @@ const handleReport = function (resolvedValue, sequencer, thread, blockCached, la
                     // Target no longer exists
                     return;
                 }
+                if (typeof resolvedValue == "object") {
+                    if (resolvedValue instanceof Array) {
+                        resolvedValue = [...resolvedValue]
+                    }else{
+                        resolvedValue = {...resolvedValue}
+                    }
+                }
                 sequencer.runtime.requestUpdateMonitor(Map({
                     id: currentBlockId,
                     spriteName: targetId ? sequencer.runtime.getTargetById(targetId).getName() : null,

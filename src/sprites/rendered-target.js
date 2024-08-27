@@ -1197,6 +1197,7 @@ class RenderedTarget extends Target {
             componentsName: this.components.map(target => target.sprite.name),
             showComponents: this.showComponents,
             inheritedVariables: this.inheritedVariables,
+            inheritedBlocks: this.blocks.inheritedBlocks,
         };
     }
     // getComponentsPublicDefinition() {

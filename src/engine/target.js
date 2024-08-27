@@ -85,7 +85,28 @@ class Target extends EventEmitter {
         /** @type {Array} */
         this.returnObject = {}
         this.referencedComponents = []
+        //this.blocks.onChangeProceduresPrototype = this.onChangeProceduresPrototype.bind(this)
     }
+    updateProceduresCall(newBlocks, procedureCode) {
+        const r = {}
+        newBlocks.forEach((block, index) => {
+            if (index == 0) {
+                r.call = block
+            } else {
+                r[block.id] = block
+            }
+        })
+
+        this.updateParentProceduresPrototype(r, procedureCode)
+    }
+
+    updateParentProceduresPrototype(newBlocks, procedureCode) {
+        this.blocks.changeProcedureCall(newBlocks, procedureCode)
+        this.referencedComponents.forEach((target) => {
+            target.updateParentProceduresPrototype(newBlocks, procedureCode)
+        })
+    }
+
     updateData() {
 
     }
@@ -568,7 +589,7 @@ class Target extends EventEmitter {
      * in this blocks container will be updated to refer to the corresponding new IDs.
      * @return {object} The duplicated dictionary of variables
      */
-    duplicateVariables (target, useBlock) {
+    duplicateVariables(target, useBlock) {
         let allVarRefs;
         const optBlocks = useBlock && target.blocks
         if (optBlocks) {

@@ -207,6 +207,12 @@ class ScriptTreeGenerator {
                     index0: this.descendInputOfBlock(block, "INDEX0"),
                     index1: this.descendInputOfBlock(block, "INDEX1"),
                 }
+            case 'structures_indexof_list':
+                return {
+                    kind: 'structures.indexof_list',
+                    object: this.descendInputOfBlock(block, "OBJECT"),
+                    value: this.descendInputOfBlock(block, "VALUE"),
+                }
             case 'structures_get_all_key':
                 return {
                     kind: 'structures.get_all_key',
@@ -772,6 +778,12 @@ class ScriptTreeGenerator {
      */
     descendStackedBlock(block) {
         switch (block.opcode) {
+            case 'structures_append_list':
+                return {
+                    kind: 'structures.append_list',
+                    object: this.descendInputOfBlock(block, "OBJECT"),
+                    value: this.descendInputOfBlock(block, "VALUE"),
+                }
             case 'structures_set_attribute':
                 return {
                     kind: 'structures.set_attribute',

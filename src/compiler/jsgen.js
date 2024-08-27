@@ -433,22 +433,25 @@ class JSGenerator {
         switch (node.kind) {
             case 'control.call_return':
                 // TODO:添加
-                const callf =`${this.descendInput(node.function).asUnknown()}(${this.isWarp},${this.descendExtensible(node).join(',')})`
+                const callf = `${this.descendInput(node.function).asUnknown()},${this.isWarp},${this.descendExtensible(node).join(',')}`
                 return new TypedInput(`(yield* callDynamicFunction(${callf}))`, TYPE_UNKNOWN)
             case 'hat_parameters':
                 return new TypedInput(`thread.hatParameters["${node.value}"]`, TYPE_UNKNOWN)
             case 'sensing.touching_targets':
-                return new TypedInput(`target.getAllTouchingTarget()`,TYPE_NUMBER)
+                return new TypedInput(`target.getAllTouchingTarget()`, TYPE_NUMBER)
             case 'structures.get_list_length':
-                return new TypedInput(`${this.descendInput(node.object).asUnknown()}.length`,TYPE_NUMBER)
+                return new TypedInput(`${this.descendInput(node.object).asUnknown()}.length`, TYPE_NUMBER)
+            case 'structures.indexof_list':
+                return new TypedInput(`${this.descendInput(node.object).asUnknown()}.indexOf?.(${this.descendInput(node.value).asUnknown()})`, TYPE_UNKNOWN)
+
             case 'structures.list_includes':
-                return new TypedInput(`${this.descendInput(node.object).asUnknown()}.includes?.(${this.descendInput(node.value).asUnknown()})`,TYPE_UNKNOWN) 
+                return new TypedInput(`${this.descendInput(node.object).asUnknown()}.includes?.(${this.descendInput(node.value).asUnknown()})`, TYPE_UNKNOWN)
             case 'structures.slice_list':
-                return new TypedInput(`${this.descendInput(node.object).asUnknown()}.slice?.(${this.descendInput(node.index0).asNumber()}, ${this.descendInput(node.index1).asNumber()})`,TYPE_UNKNOWN) 
+                return new TypedInput(`${this.descendInput(node.object).asUnknown()}.slice?.(${this.descendInput(node.index0).asNumber()}, ${this.descendInput(node.index1).asNumber()})`, TYPE_UNKNOWN)
             case 'structures.get_all_key':
-                return new TypedInput(`Object.keys(${this.descendInput(node.object).asUnknown()})`,TYPE_UNKNOWN) 
+                return new TypedInput(`Object.keys(${this.descendInput(node.object).asUnknown()})`, TYPE_UNKNOWN)
             case 'structures.get_all_value':
-                return new TypedInput(`Object.values(${this.descendInput(node.object).asUnknown()})`,TYPE_UNKNOWN) 
+                return new TypedInput(`Object.values(${this.descendInput(node.object).asUnknown()})`, TYPE_UNKNOWN)
             case 'control.get_previous_clone':
                 return new TypedInput("target.getPreviousClone().getData()", TYPE_UNKNOWN);
             case 'structures.self':
@@ -809,14 +812,14 @@ class JSGenerator {
                 throw new Error(`JS: Unknown input: ${node.kind}`);
         }
     }
-    descendExtensible(node){
+    descendExtensible(node) {
         const args = [];
         for (const input of node.extensible) {
             args.push(this.descendInput(input).asSafe());
         }
         return args
     }
-    setCache(cache){
+    setCache(cache) {
         this.source += "cache = "
         this.source += cache
         this.source += ';'
@@ -826,7 +829,9 @@ class JSGenerator {
      */
     descendStackedBlock(node) {
         switch (node.kind) {
-                
+            case 'structures.append_list':
+                this.source += `${this.descendInput(node.object).asUnknown()}.push?.(${this.descendInput(node.value).asUnknown()});\n`
+                break;
             case 'structures.set_attribute':
                 const cheackCanSet = this.descendExtensible(node)
                 cheackCanSet.pop()
@@ -879,7 +884,7 @@ class JSGenerator {
                 this.source += ', thread, '
                 this.source += this.descendExtensible(node).join(',')
                 this.source += ')';
-                this.source += ']);\n'     
+                this.source += ']);\n'
                 //this.source += 'runtime.sequencer.stepThread(thread)\n'
 
                 this.source += '}\n'
@@ -1395,12 +1400,12 @@ class JSGenerator {
         if (this.threadProcedure) {
             this.source += `thread.returnValue = ${valueJS};\n`;
             this.retire()
-        }else{
+        } else {
             if (this.isProcedure) {
                 this.source += `return ${valueJS};\n`;
             } else {
                 this.retire();
-            }            
+            }
         }
     }
 

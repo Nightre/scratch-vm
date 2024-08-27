@@ -207,8 +207,7 @@ const serializeBlock = function (block) {
     obj.inputs = serializeInputs(block.inputs);
     obj.fields = serializeFields(block.fields);
     obj.shadow = block.shadow;
-    obj.shadow = block.shadow;
-    obj.inherited = block.inherited
+
     if (block.topLevel) {
         obj.topLevel = true;
         obj.x = block.x ? Math.round(block.x) : 0;
@@ -337,11 +336,13 @@ const getExtensionURLsToSave = (extensionIDs, runtime) => {
  * compressed primitives and the list of all extension IDs present
  * in the serialized blocks.
  */
-const serializeBlocks = function (blocks) {
+const serializeBlocks = function (blocks, inheritedBlocks) {
     const obj = Object.create(null);
     const extensionIDs = new Set();
     for (const blockID in blocks) {
         if (!Object.prototype.hasOwnProperty.call(blocks, blockID)) continue;
+        if (inheritedBlocks.includes(blockID)) continue;
+
         obj[blockID] = serializeBlock(blocks[blockID], blocks);
         const extensionID = getExtensionIdForOpcode(blocks[blockID].opcode);
         if (extensionID) {
@@ -539,14 +540,14 @@ const serializeVariables = function (variables) {
             obj.lists[varId] = [v.name, makeSafeForJSON(v.value)];
             continue;
         }
-        
+
         if (typeof v.value == "object") {
             obj.variables[varId] = [v.name, v.value];
         } else {
             // otherwise should be a scalar type
             obj.variables[varId] = [v.name, makeSafeForJSON(v.value)];
             // only scalar vars have the potential to be cloud vars
-            if (v.isCloud) obj.variables[varId].push(true);            
+            if (v.isCloud) obj.variables[varId].push(true);
         }
 
     }
@@ -590,6 +591,7 @@ const serializeComments = function (comments) {
  * @return {object} A serialized representation of the given target.
  */
 const serializeTarget = function (target, extensions) {
+
     const obj = Object.create(null);
     let targetExtensions = [];
     obj.isStage = target.isStage;
@@ -598,7 +600,7 @@ const serializeTarget = function (target, extensions) {
     obj.variables = vars.variables;
     obj.lists = vars.lists;
     obj.broadcasts = vars.broadcasts;
-    [obj.blocks, targetExtensions] = serializeBlocks(target.blocks);
+    [obj.blocks, targetExtensions] = serializeBlocks(target.blocks, target.inheritedBlocks);
     obj.comments = serializeComments(target.comments);
 
     // TODO remove this check/patch when (#1901) is fixed
@@ -1057,10 +1059,6 @@ const deserializeBlocks = function (blocks) {
             continue;
         }
         const block = blocks[blockId];
-        if (block.inherited) {
-            delete blocks[blockId];
-            continue;
-        }
         if (Array.isArray(block)) {
             // this is one of the primitives
             // delete the old entry in object.blocks and replace it w/the
@@ -1249,9 +1247,9 @@ const parseScratchObject = function (object, runtime, extensions, zip, assets) {
                 isCloud, target
             );
             if (isCloud) runtime.addCloudVariable();
-            
+
             newVariable.value = variable[1];
-            
+
             target.variables[newVariable.id] = newVariable;
         }
     }
@@ -1575,7 +1573,7 @@ const deserialize = async function (json, runtime, zip, isSingleSprite) {
         .sort((a, b) => a.layerOrder - b.layerOrder);
 
     const monitorObjects = json.monitors || [];
-    
+
     return fontPromise.then(() => targetObjects.map(target => parseScratchAssets(target, runtime, zip)))
         // Force this promise to wait for the next loop in the js tick. Let
         // storage have some time to send off asset requests.

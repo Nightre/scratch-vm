@@ -583,9 +583,9 @@ runtimeFunctions.yieldThenCallGenerator = `const yieldThenCallGenerator = functi
     return yield* callback(...args);
 }`;
 runtimeFunctions.callDynamicFunction = `
-const callDynamicFunction = function* (target, functinon, isWarp, args) {
+const callDynamicFunction = function* (functinon, isWarp, ...args) {
     if (typeof functinon === "function") {
-        let t = functinon.call(target, isWarp, args);
+        let t = functinon.call(globalState.thread.target, isWarp, globalState.thread, ...args);
         yield* waitThreads([t]);
         return t.returnValue;
     }
