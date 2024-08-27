@@ -37,6 +37,7 @@
     "@turbowarp/json": "^0.1.2",
     "@turbowarp/jszip": "^3.11.0",
     "@turbowarp/nanolog": "^0.2.0",
+    "@turbowarp/scratch-svg-renderer": "^1.0.202407311639",
     "@vernier/godirect": "1.5.0",
     "arraybuffer-loader": "^1.0.6",
     "atob": "2.1.2",
