@@ -9,6 +9,7 @@ const log = require('../util/log');
 const StringUtil = require('../util/string-util');
 const VariableUtil = require('../util/variable-util');
 const newBlockIds = require('../util/new-block-ids');
+const { simple } = require('../util/clone');
 /**
  * @fileoverview
  * A Target is an abstract "code-running" object for the Scratch VM.
@@ -216,8 +217,7 @@ class Target extends EventEmitter {
                     variable.isCloud
                 )
             }
-            const copiedBlocks = JSON.parse(JSON.stringify(component.blocks._blocks));
-            newBlockIds(copiedBlocks);
+            let copiedBlocks = simple(component.blocks._blocks);
             for (const parentBlock of Object.values(copiedBlocks)) {
                 const newBlock = blocks.inheritBlock(parentBlock, this.showComponents[componentId])
                 blocks.createBlock(newBlock, true)
